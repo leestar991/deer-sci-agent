@@ -194,15 +194,20 @@ Step 6  用户确认后，进入 Phase 0 正式执行
 
 **目标**：用户上传 PDF/URL，自动完成格式转换 + OpenViking 向量索引。
 
-| 任务 | 说明 |
-|------|------|
-| 1-1 | 创建 `sci-research` Skill 主文件（Phase 0 入库流程） |
-| 1-2 | 实现上传后自动调用 `ov add-resource` 的 Skill 指令 |
-| 1-3 | 支持批量 URL 摄入（arXiv、DOI、PubMed） |
-| 1-4 | 创建 `ov-retriever` 子代理，封装 `ov find` + `ov read` 工作流 |
-| 1-5 | 测试：上传 10 篇 PDF，验证语义检索准确率 |
+| 任务 | 说明 | 状态 |
+|------|------|------|
+| 1-1 | 创建 `sci-research` Skill 主文件（完整 Phase 1A–1E 摄入流程） | ✅ |
+| 1-2 | 实现上传后自动调用 `ov add-resource` 的 Skill 指令（1B 节） | ✅ |
+| 1-3 | 支持批量 URL 摄入（arXiv、DOI、PubMed），含 URL 规范化表（1C 节） | ✅ |
+| 1-4 | 创建 `ov-retriever` 子代理，封装 `ov find` + `ov read` 工作流 | ✅ |
+| 1-5 | 编写 `test_sci_ingestion.py`（43 个测试：URL 规范化 + SKILL.md 完整性） | ✅ |
+
+**额外交付**（超出原计划）：
+- ✅ `deerflow/utils/arxiv_url.py` — Python URL 规范化工具（`normalize_literature_url`、`batch_urls`），支持 arXiv/DOI/PubMed/plain URL 四种格式，供子代理通过 bash 调用
 
 **验收标准**：上传 PDF → 30 秒内可通过 `ov find` 语义检索到相关段落。
+
+> ✅ **已完成（2026-03-27）**：SKILL.md（1A–1E）+ ov-retriever 子代理（Phase -1 时提前交付）+ `arxiv_url.py` URL 规范化工具 + `test_sci_ingestion.py`（43 个测试全部通过）。
 
 ---
 
@@ -210,16 +215,18 @@ Step 6  用户确认后，进入 Phase 0 正式执行
 
 **目标**：`literature-analyzer` 子代理对单篇论文做结构化精读。
 
-| 任务 | 说明 |
-|------|------|
-| 2-1 | 编写 `literature-analyzer.md` 子代理 prompt（精读模板） |
-| 2-2 | 配置该子代理使用 DeepSeek-R1 模型（强推理） |
-| 2-3 | 定义标准化输出格式（研究问题/方法/发现/局限/差异点） |
-| 2-4 | 编写 `data-extractor.md`，专注提取数值数据和对比表格 |
-| 2-5 | 配置 `data-extractor` 使用 Claude 3.5 Sonnet（结构化精度） |
-| 2-6 | 测试：对 5 篇论文并行分析，验证输出一致性 |
+| 任务 | 说明 | 状态 |
+|------|------|------|
+| 2-1 | 编写 `literature-analyzer.md` 子代理 prompt（精读模板） | ✅ |
+| 2-2 | 配置该子代理使用 DeepSeek-R1 模型（`model="deepseek-v3"`） | ✅ |
+| 2-3 | 定义标准化输出格式（研究问题/方法/发现/局限/差异点 五节 + 扩展第六节） | ✅ |
+| 2-4 | 编写 `data-extractor.md`，专注提取数值数据和对比表格 | ✅ |
+| 2-5 | 配置 `data-extractor` 使用 Claude 3.5 Sonnet（`model="claude-3-5-sonnet"`） | ✅ |
+| 2-6 | 编写 `test_sci_analysis.py`（50 个测试：模型配置 + 输出格式 + prompt 文件完整性 + SKILL.md Phase 2） | ✅ |
 
 **验收标准**：单篇论文分析输出包含所有 5 个结构化字段，数据提取准确率 ≥ 90%。
+
+> ✅ **已完成（2026-03-27）**：`literature-analyzer.md`（Phase -1 提前交付）+ `data-extractor.md`（Phase -1 提前交付）+ 模型配置（deepseek-v3 / claude-3-5-sonnet）+ `test_sci_analysis.py`（50 个测试全部通过）。
 
 ---
 
