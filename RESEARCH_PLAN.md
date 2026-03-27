@@ -102,6 +102,8 @@ deer-sci-agent/
 
 ## 研发阶段
 
+> **进度说明**：✅ 已完成 | 🔄 进行中 | ⬜ 待开始
+
 ### Phase -1：需求确认与资料准备（Skill 层，无需修改核心代码）
 
 **目标**：在任何分析动作启动前，通过结构化交互厘清研究目标，允许用户上传本地文献材料，并让用户对研究计划草案做最终确认后再执行。
@@ -158,22 +160,32 @@ Step 6  用户确认后，进入 Phase 0 正式执行
 - 用户上传文件后，Agent 在下一轮输出中正确引用文件路径
 - 计划草案呈现后，未经用户明确确认前不启动任何子代理或检索任务
 
+> ✅ **已完成（2026-03-26）**：`SKILL.md`、`intake-flow.md`、5 个 agent prompt、3 个报告模板全部创建完毕。
+
 ---
 
 ### Phase 0：基础设施准备（第 1 周）
 
 **目标**：确保 OpenViking 与 DeerFlow 可互通，子代理扩展机制就绪。
 
-| 任务 | 说明 | 负责层 |
-|------|------|--------|
-| 0-1 | 验证 OpenViking 服务启动（`ov ls` 可用） | 环境 |
-| 0-2 | 确认 `ov add-resource` 可索引 PDF 转换后的 Markdown | 集成测试 |
-| 0-3 | 扩展 `task_tool.py` 的 `subagent_type` Literal，支持 4 个新类型 | 核心代码 |
-| 0-4 | 创建 4 个子代理 Python 配置文件并注册到 `BUILTIN_SUBAGENTS` | 核心代码 |
-| 0-5 | 调整 `config.yaml` 摘要/记忆参数 | 配置 |
-| 0-6 | 编写单元测试覆盖新子代理注册逻辑 | 测试 |
+| 任务 | 说明 | 负责层 | 状态 |
+|------|------|--------|------|
+| 0-1 | 验证 OpenViking 服务启动（`ov ls` 可用） | 环境 | ⬜ |
+| 0-2 | 确认 `ov add-resource` 可索引 PDF 转换后的 Markdown | 集成测试 | ⬜ |
+| 0-3 | 扩展 `task_tool.py` 的 `subagent_type` Literal，支持 4 个新类型 | 核心代码 | ✅ |
+| 0-4 | 创建 4 个子代理 Python 配置文件并注册到 `BUILTIN_SUBAGENTS` | 核心代码 | ✅ |
+| 0-5 | 调整 `config.yaml` 摘要/记忆参数 | 配置 | ⬜ |
+| 0-6 | 编写单元测试覆盖新子代理注册逻辑 | 测试 | ✅ |
+
+**额外交付**（超出原计划）：
+- ✅ `Paths` 用户隔离路径系统（`users/{id}/`、`thread-ownership.json`、路径注入防护）
+- ✅ `ThreadDataMiddleware` 扩展：线程 ownership 原子记录 + 用户目录自动创建
+- ✅ `test_user_isolation.py`（18 个测试）
+- ✅ 修复 `test_subagent_executor.py` session 级 fixture 导致的测试污染 bug
 
 **验收标准**：`make test` 全部通过，`task(subagent_type="literature-analyzer")` 可正常调用。
+
+> 🔄 **进行中（2026-03-27）**：0-3、0-4、0-6 已完成（756 tests passed）；0-1、0-2、0-5 待完成。
 
 ---
 
@@ -307,15 +319,15 @@ subagents:
 
 ## 里程碑
 
-| 里程碑 | 目标日期 | 交付物 |
-|--------|---------|--------|
-| M-1：需求确认流程可用 | 2026-04-01 | intake-flow.md，交互脚本完成，ask_clarification 两轮澄清验证通过 |
-| M0：基础设施就绪 | 2026-04-08 | 子代理注册完成，测试通过 |
-| M1：文献摄入可用 | 2026-04-15 | PDF 上传 → OV 索引 → 语义检索 |
-| M2：单篇分析可用 | 2026-04-22 | literature-analyzer 输出标准化 |
-| M3：综合分析可用 | 2026-04-29 | Gap Analysis 生成 |
-| M4：报告写作可用 | 2026-05-06 | 完整报告端到端生成 |
-| M5：正式发布 | 2026-05-13 | PR 合并，文档完善 |
+| 里程碑 | 目标日期 | 实际完成 | 状态 | 交付物 |
+|--------|---------|---------|------|--------|
+| M-1：需求确认流程可用 | 2026-04-01 | 2026-03-26 | ✅ 提前完成 | SKILL.md、intake-flow.md、5 个 agent prompt、3 个报告模板 |
+| M0：基础设施就绪 | 2026-04-08 | — | 🔄 进行中 | 子代理注册 ✅ 、测试通过 ✅；OV 集成验证、config.yaml 调整待完成 |
+| M1：文献摄入可用 | 2026-04-15 | — | ⬜ 待开始 | PDF 上传 → OV 索引 → 语义检索 |
+| M2：单篇分析可用 | 2026-04-22 | — | ⬜ 待开始 | literature-analyzer 输出标准化 |
+| M3：综合分析可用 | 2026-04-29 | — | ⬜ 待开始 | Gap Analysis 生成 |
+| M4：报告写作可用 | 2026-05-06 | — | ⬜ 待开始 | 完整报告端到端生成 |
+| M5：正式发布 | 2026-05-13 | — | ⬜ 待开始 | PR 合并，文档完善 |
 
 ---
 
@@ -344,6 +356,16 @@ git push origin main
 git checkout feature/sci-research-agent
 git rebase main
 ```
+
+---
+
+## 变更日志
+
+| 日期 | Commit | 内容 |
+|------|--------|------|
+| 2026-03-25 | `8861b5f` | 创建 RESEARCH_PLAN.md，规划整体架构与 6 周研发路线 |
+| 2026-03-26 | `6e8de6f` | Phase -1：创建 intake-flow.md、SKILL.md、agent prompts、报告模板（M-1 ✅） |
+| 2026-03-27 | `096fb59` | Phase 0：注册 4 个科研子代理、扩展 task_tool Literal、Paths 用户隔离系统、ThreadDataMiddleware 扩展、修复 session 级 fixture 测试污染；756 tests passed |
 
 ---
 
