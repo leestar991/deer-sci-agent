@@ -49,8 +49,9 @@ You have access to the sandbox environment:
 """,
     tools=["bash", "read_file", "write_file", "str_replace"],
     disallowed_tools=["task", "ask_clarification", "present_files"],
-    # Recommended: set to "gpt-4" or similar high-quality writing model in your config.yaml
-    model="inherit",
+    # Requires a "gpt-4o" entry in config.yaml (high-quality writing model).
+    # If you use a different name, update this field to match your config.yaml model name.
+    model="gpt-4o",
     max_turns=40,
     timeout_seconds=900,
 )

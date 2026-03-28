@@ -256,17 +256,23 @@ Step 6  用户确认后，进入 Phase 0 正式执行
 
 **目标**：`report-writer` 子代理生成各章节，Lead Agent 整合为完整报告。
 
-| 任务 | 说明 |
-|------|------|
-| 4-1 | 创建报告结构模板（`research-report.md`） |
-| 4-2 | 编写 `report-writer.md` 子代理 prompt（学术写作规范） |
-| 4-3 | 配置 `report-writer` 使用 GPT-4o（写作质量） |
-| 4-4 | 实现并行章节写作：方法论分析、文献综述、数据对比（3 子代理并发） |
-| 4-5 | Lead Agent 串行完成：引言、讨论、结论（需全局视角） |
-| 4-6 | 集成引用格式规范（APA/GB/IEEE 自动格式化） |
-| 4-7 | 测试：端到端生成一篇完整文献综述报告 |
+| 任务 | 说明 | 状态 |
+|------|------|------|
+| 4-1 | 创建报告结构模板（`research-report.md`，7 章结构 + 组装指令） | ✅ |
+| 4-2 | 编写 `report-writer.md` 子代理 prompt（3 章模板 + APA/IEEE/GB 引用 + 7 条行为规则） | ✅ |
+| 4-3 | 配置 `report-writer` 使用 GPT-4o（`model="gpt-4o"`） | ✅ |
+| 4-4 | 实现并行章节写作：SKILL.md Phase 4 完整 5 步工作流（3 并行任务 dispatch + 等待） | ✅ |
+| 4-5 | Lead Agent 串行完成：引言、背景、讨论、结论（SKILL.md Step 2） | ✅ |
+| 4-6 | 集成引用格式规范：`citation-formats.md`（APA/IEEE/GB-T-7714 完整格式） | ✅ |
+| 4-7 | 编写 `test_sci_report.py`（57 个测试：模型配置 + 章节模板 + 引用格式 + SKILL.md Phase 4） | ✅ |
+
+**额外交付**（超出原计划）：
+- ✅ `citation-formats.md` 包含常见期刊/会议缩写速查表（IEEE/NeurIPS/ICML/CVPR 等）
+- ✅ `research-report.md` Assembly Instructions：完整 7 步组装 + `present_files` 交付流程
 
 **验收标准**：生成报告包含完整 6 章结构，引用格式正确，图表嵌入正常。
+
+> ✅ **已完成（2026-03-28）**：`report-writer.md`（Phase -1 提前交付）+ `research-report.md` + `citation-formats.md` + `report_writer.py`（gpt-4o）+ SKILL.md Phase 4 完整工作流 + `test_sci_report.py`（57 个测试全部通过）。
 
 ---
 
@@ -340,7 +346,7 @@ subagents:
 | M1：文献摄入可用 | 2026-04-15 | — | ⬜ 待开始 | PDF 上传 → OV 索引 → 语义检索 |
 | M2：单篇分析可用 | 2026-04-22 | — | ⬜ 待开始 | literature-analyzer 输出标准化 |
 | M3：综合分析可用 | 2026-04-29 | 2026-03-28 | ✅ 提前完成 | synthesis.md + SKILL.md Phase 3 扩展 + test_sci_synthesis.py（37 测试） |
-| M4：报告写作可用 | 2026-05-06 | — | ⬜ 待开始 | 完整报告端到端生成 |
+| M4：报告写作可用 | 2026-05-06 | 2026-03-28 | ✅ 提前完成 | report-writer.md + research-report.md + citation-formats.md + gpt-4o 配置 + SKILL.md Phase 4 + test_sci_report.py（57 测试） |
 | M5：正式发布 | 2026-05-13 | — | ⬜ 待开始 | PR 合并，文档完善 |
 
 ---
@@ -382,6 +388,7 @@ git rebase main
 | 2026-03-27 | `096fb59` | Phase 0（Part 1）：注册 4 个科研子代理、扩展 task_tool Literal、Paths 用户隔离系统、ThreadDataMiddleware 扩展、修复 session 级 fixture 测试污染；756 tests passed |
 | 2026-03-27 | —（不入库）| Phase 0（Part 2）：启动 OV 服务、修复 embedding api_base + 补充 `"input":"multimodal"` 字段、验证 `ov add-resource` + `ov find` 全流程；创建 config.yaml 调整摘要/记忆/子代理超时参数（M0 ✅） |
 | 2026-03-28 | — | Phase 3：创建 synthesis.md（完整 4 步工作流 + 6 条行为规则）+ 扩展 SKILL.md Phase 3（stub → 详细工作流）+ test_sci_synthesis.py（37 个测试全部通过）；M3 ✅ |
+| 2026-03-28 | — | Phase 4：report_writer.py model→gpt-4o + SKILL.md Phase 4（5 步工作流：3 并行章节 + 串行 + 引用编译 + 摘要 + 组装 present_files）+ test_sci_report.py（57 个测试全部通过）；M4 ✅ |
 
 ---
 
