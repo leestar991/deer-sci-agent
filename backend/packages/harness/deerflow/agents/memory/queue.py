@@ -1,5 +1,6 @@
 """Memory update queue with debounce mechanism."""
 
+import logging
 import threading
 import time
 from dataclasses import dataclass, field
@@ -10,6 +11,8 @@ from deerflow.config.memory_config import get_memory_config
 
 if TYPE_CHECKING:
     from deerflow.identity.agent_identity import AgentIdentity
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -72,7 +75,7 @@ class MemoryUpdateQueue:
             # Reset or start the debounce timer
             self._reset_timer()
 
-        print(f"Memory update queued for thread {thread_id}, queue size: {len(self._queue)}")
+        logger.info("Memory update queued for thread %s, queue size: %d", thread_id, len(self._queue))
 
     def _reset_timer(self) -> None:
         """Reset the debounce timer."""
@@ -90,7 +93,7 @@ class MemoryUpdateQueue:
         self._timer.daemon = True
         self._timer.start()
 
-        print(f"Memory update timer set for {config.debounce_seconds}s")
+        logger.debug("Memory update timer set for %ss", config.debounce_seconds)
 
     def _process_queue(self) -> None:
         """Process all queued conversation contexts."""
@@ -111,14 +114,14 @@ class MemoryUpdateQueue:
             self._queue.clear()
             self._timer = None
 
-        print(f"Processing {len(contexts_to_process)} queued memory updates")
+        logger.info("Processing %d queued memory updates", len(contexts_to_process))
 
         try:
             updater = MemoryUpdater()
 
             for context in contexts_to_process:
                 try:
-                    print(f"Updating memory for thread {context.thread_id}")
+                    logger.info("Updating memory for thread %s", context.thread_id)
                     success = updater.update_memory(
                         messages=context.messages,
                         thread_id=context.thread_id,
@@ -127,11 +130,11 @@ class MemoryUpdateQueue:
                         identity=context.identity,
                     )
                     if success:
-                        print(f"Memory updated successfully for thread {context.thread_id}")
+                        logger.info("Memory updated successfully for thread %s", context.thread_id)
                     else:
-                        print(f"Memory update skipped/failed for thread {context.thread_id}")
+                        logger.warning("Memory update skipped/failed for thread %s", context.thread_id)
                 except Exception as e:
-                    print(f"Error updating memory for thread {context.thread_id}: {e}")
+                    logger.error("Error updating memory for thread %s: %s", context.thread_id, e)
 
                 # Small delay between updates to avoid rate limiting
                 if len(contexts_to_process) > 1:
