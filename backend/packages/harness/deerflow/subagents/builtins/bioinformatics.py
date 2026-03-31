@@ -63,7 +63,8 @@ Outputs: /mnt/user-data/outputs
 """,
     tools=["tavily_web_search", "tavily_web_fetch", "read_file", "write_file", "bash"],
     disallowed_tools=["task"],
-    model="inherit",
+    # claude-sonnet-4-6：多组学推理 + 生物标志物策略，需要深度生物信息学知识
+    model="claude-sonnet-4-6",
     max_turns=50,
     timeout_seconds=600,
 )

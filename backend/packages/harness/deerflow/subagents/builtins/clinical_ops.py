@@ -63,7 +63,8 @@ Outputs: /mnt/user-data/outputs
 """,
     tools=["tavily_web_search", "tavily_web_fetch", "read_file", "write_file", "bash"],
     disallowed_tools=["task"],
-    model="inherit",
+    # claude-haiku-4-5：运营规划模板化程度高，响应快，高频调用节省成本
+    model="claude-haiku-4-5",
     max_turns=50,
     timeout_seconds=600,
 )

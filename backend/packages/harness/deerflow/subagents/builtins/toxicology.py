@@ -63,7 +63,8 @@ Outputs: /mnt/user-data/outputs
 """,
     tools=["tavily_web_search", "tavily_web_fetch", "read_file", "bash"],
     disallowed_tools=["task"],
-    model="inherit",
+    # claude-sonnet-4-6：复杂生物安全推理，毒理与临床转化判断
+    model="claude-sonnet-4-6",
     max_turns=50,
     timeout_seconds=600,
 )

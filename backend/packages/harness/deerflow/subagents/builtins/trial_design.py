@@ -63,7 +63,8 @@ Outputs: /mnt/user-data/outputs
 """,
     tools=["tavily_web_search", "tavily_web_fetch", "read_file", "write_file", "bash"],
     disallowed_tools=["task"],
-    model="inherit",
+    # claude-opus-4-6：复杂适应性试验设计，临床风险最高，需最强推理能力
+    model="claude-opus-4-6",
     max_turns=50,
     timeout_seconds=900,
 )

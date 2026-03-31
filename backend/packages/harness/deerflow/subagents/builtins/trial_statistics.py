@@ -63,7 +63,8 @@ Outputs: /mnt/user-data/outputs
 """,
     tools=["tavily_web_search", "tavily_web_fetch", "read_file", "write_file", "bash"],
     disallowed_tools=["task"],
-    model="inherit",
+    # gpt-4.1：统计数学精度，SAP 结构化输出，MMRM/Bayesian 方法推导
+    model="gpt-4.1",
     max_turns=50,
     timeout_seconds=900,
 )

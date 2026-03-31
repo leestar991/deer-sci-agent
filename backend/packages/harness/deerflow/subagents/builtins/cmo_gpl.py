@@ -54,7 +54,8 @@ Outputs: /mnt/user-data/outputs
 """,
     tools=["tavily_web_search", "tavily_web_fetch", "read_file", "write_file", "bash"],
     disallowed_tools=["task"],
-    model="inherit",
+    # claude-opus-4-6：顶层战略推理，跨域利弊权衡，最高复杂度决策
+    model="claude-opus-4-6",
     max_turns=50,
     timeout_seconds=600,
 )

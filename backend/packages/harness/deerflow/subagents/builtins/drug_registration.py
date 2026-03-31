@@ -62,7 +62,8 @@ Outputs: /mnt/user-data/outputs
 """,
     tools=["tavily_web_search", "tavily_web_fetch", "read_file", "write_file", "bash"],
     disallowed_tools=["task"],
-    model="inherit",
+    # claude-sonnet-4-6：复杂多辖区法规策略，精准监管文件写作
+    model="claude-sonnet-4-6",
     max_turns=50,
     timeout_seconds=900,
 )

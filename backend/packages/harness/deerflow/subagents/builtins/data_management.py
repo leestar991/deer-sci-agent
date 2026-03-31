@@ -63,7 +63,8 @@ Outputs: /mnt/user-data/outputs
 """,
     tools=["tavily_web_search", "tavily_web_fetch", "read_file", "write_file", "bash"],
     disallowed_tools=["task"],
-    model="inherit",
+    # gpt-4o：CDISC 系统化映射（CDASH→SDTM→ADaM），规则导向结构输出
+    model="gpt-4o",
     max_turns=50,
     timeout_seconds=600,
 )
