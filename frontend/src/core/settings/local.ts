@@ -14,8 +14,8 @@ export const DEFAULT_LOCAL_SETTINGS: LocalSettings = {
   },
 };
 
-const LOCAL_SETTINGS_KEY = "deerflow.local-settings";
-const THREAD_MODEL_KEY_PREFIX = "deerflow.thread-model.";
+const LOCAL_SETTINGS_KEY = "nexttask.local-settings";
+const THREAD_MODEL_KEY_PREFIX = "nexttask.thread-model.";
 
 function isBrowser(): boolean {
   return typeof window !== "undefined";

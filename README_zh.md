@@ -1,186 +1,186 @@
-# 🦌 DeerFlow - 2.0
+# NextTask — GPT 虚拟临床开发团队
 
-[English](./README.md) | 中文 | [日本語](./README_ja.md) | [Français](./README_fr.md) | [Русский](./README_ru.md)
+[English](./README.md) | 中文
 
 [![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](./backend/pyproject.toml)
 [![Node.js](https://img.shields.io/badge/Node.js-22%2B-339933?logo=node.js&logoColor=white)](./Makefile)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-<a href="https://trendshift.io/repositories/14699" target="_blank"><img src="https://trendshift.io/api/badge/repositories/14699" alt="bytedance%2Fdeer-flow | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-> 2026 年 2 月 28 日，DeerFlow 2 发布后登上 GitHub Trending 第 1 名。非常感谢社区的支持，这是大家一起做到的。
+NextTask 是一个基于 Multi-Agent 架构的 GPT 虚拟团队平台，将多个专业领域的 AI Agent 组织为一支**虚拟临床开发团队**。
 
-DeerFlow（**D**eep **E**xploration and **E**fficient **R**esearch **Flow**）是一个开源的 **super agent harness**。它把 **sub-agents**、**memory** 和 **sandbox** 组织在一起，再配合可扩展的 **skills**，让 agent 可以完成几乎任何事情。
+与单一 Agent 不同，NextTask 的 Lead Agent 可以按需动态调度专业 Sub-Agent，让不同专业背景的"团队成员"并行协作，完成从临床方案设计、数据管理、药物注册到文件撰写的全链条任务。整个系统基于 [LangGraph](https://github.com/langchain-ai/langgraph) 和 [LangChain](https://github.com/langchain-ai/langchain) 构建，通过可扩展的 Skills 和 MCP 工具拓展能力边界。
 
-https://github.com/user-attachments/assets/a8bcadc4-e040-4cf2-8fda-dd768b999c18
-
-> [!NOTE]
-> **DeerFlow 2.0 是一次彻底重写。** 它和 v1 没有共用代码。如果你要找的是最初的 Deep Research 框架，可以前往 [`1.x` 分支](https://github.com/bytedance/deer-flow/tree/main-1.x)。那里仍然欢迎贡献；当前的主要开发已经转向 2.0。
-
-## 官网
-
-[<img width="2880" height="1600" alt="image" src="https://github.com/user-attachments/assets/a598c49f-3b2f-41ea-a052-05e21349188a" />](https://deerflow.tech)
-
-想了解更多，或者直接看**真实演示**，可以访问[**官网**](https://deerflow.tech)。
-
-## 字节跳动火山引擎方舟 Coding Plan
-
-[<img width="4808" height="2400" alt="codingplan -banner 素材" src="https://github.com/user-attachments/assets/d30dae52-84f2-4021-b32f-6d281252b9ea" />](https://www.volcengine.com/activity/codingplan?utm_campaign=deer_flow&utm_content=deer_flow&utm_medium=devrel&utm_source=OWO&utm_term=deer_flow)
-
-- 我们推荐使用 Doubao-Seed-2.0-Code、DeepSeek v3.2 和 Kimi 2.5 运行 DeerFlow
-- [现在就加入 Coding Plan](https://www.volcengine.com/activity/codingplan?utm_campaign=deer_flow&utm_content=deer_flow&utm_medium=devrel&utm_source=OWO&utm_term=deer_flow)
-- [海外地区的开发者请点击这里](https://www.byteplus.com/en/activity/codingplan?utm_campaign=deer_flow&utm_content=deer_flow&utm_medium=devrel&utm_source=OWO&utm_term=deer_flow)
+---
 
 ## 目录
 
-- [🦌 DeerFlow - 2.0](#-deerflow---20)
-  - [官网](#官网)
-  - [InfoQuest](#infoquest)
-  - [目录](#目录)
-  - [一句话交给 Coding Agent 安装](#一句话交给-coding-agent-安装)
-  - [快速开始](#快速开始)
-    - [配置](#配置)
-    - [运行应用](#运行应用)
-      - [方式一：Docker（推荐）](#方式一docker推荐)
-      - [方式二：本地开发](#方式二本地开发)
-    - [进阶配置](#进阶配置)
-      - [Sandbox 模式](#sandbox-模式)
-      - [MCP Server](#mcp-server)
-      - [IM 渠道](#im-渠道)
-      - [LangSmith 链路追踪](#langsmith-链路追踪)
-  - [从 Deep Research 到 Super Agent Harness](#从-deep-research-到-super-agent-harness)
-  - [核心特性](#核心特性)
-    - [Skills 与 Tools](#skills-与-tools)
-      - [Claude Code 集成](#claude-code-集成)
-    - [Sub-Agents](#sub-agents)
-    - [Sandbox 与文件系统](#sandbox-与文件系统)
-    - [Context Engineering](#context-engineering)
-    - [长期记忆](#长期记忆)
-  - [推荐模型](#推荐模型)
-  - [内嵌 Python Client](#内嵌-python-client)
-  - [文档](#文档)
-  - [⚠️ 安全使用](#️-安全使用)
-  - [参与贡献](#参与贡献)
-  - [许可证](#许可证)
-  - [致谢](#致谢)
-    - [核心贡献者](#核心贡献者)
-  - [Star History](#star-history)
+- [核心理念：GPT 虚拟临床开发团队](#核心理念gpt-虚拟临床开发团队)
+- [团队成员（Sub-Agents）](#团队成员sub-agents)
+- [快速开始](#快速开始)
+  - [配置](#配置)
+  - [运行应用](#运行应用)
+    - [方式一：Docker（推荐）](#方式一docker推荐)
+    - [方式二：本地开发](#方式二本地开发)
+  - [进阶配置](#进阶配置)
+    - [Sandbox 模式](#sandbox-模式)
+    - [MCP Server](#mcp-server)
+    - [IM 渠道](#im-渠道)
+    - [LangSmith 链路追踪](#langsmith-链路追踪)
+- [核心能力](#核心能力)
+  - [Skills 与 Tools](#skills-与-tools)
+  - [Sandbox 与文件系统](#sandbox-与文件系统)
+  - [Context Engineering](#context-engineering)
+  - [长期记忆](#长期记忆)
+- [推荐模型](#推荐模型)
+- [内嵌 Python Client](#内嵌-python-client)
+- [文档](#文档)
+- [安全使用](#安全使用)
+- [参与贡献](#参与贡献)
+- [许可证](#许可证)
+- [致谢](#致谢)
 
-## 一句话交给 Coding Agent 安装
+---
 
-如果你在用 Claude Code、Codex、Cursor、Windsurf 或其他 coding agent，可以直接把下面这句话发给它：
+## 核心理念：GPT 虚拟临床开发团队
 
-```text
-如果还没 clone DeerFlow，就先 clone，然后按照 https://raw.githubusercontent.com/bytedance/deer-flow/main/Install.md 把它的本地开发环境初始化好
-```
+临床药物开发涉及医学、统计、法规、CMC、生物信息、临床运营等多个高度专业化的领域，没有一个单一 Agent 能同时精通所有方向。
 
-这条提示词是给 coding agent 用的。它会在需要时先 clone 仓库，优先选择 Docker，完成初始化，并在结束时告诉你下一条启动命令，以及还缺哪些配置需要你补充。
+NextTask 的思路是：**组建一支 GPT 团队**。
+
+每位"团队成员"都是一个深度专业化的 Sub-Agent，拥有独立的专业背景、核心能力和工作边界。Lead Agent 负责理解任务、制定计划、调度合适的成员并行工作，最终汇总出结构化的团队产出。
+
+这让 NextTask 能够处理真实的临床开发工作流：
+
+- 一份完整的 III 期临床方案，需要 `trial-design`、`parkinson-clinical`、`trial-statistics`、`clinical-ops` 协作完成
+- 一次 IND 申报准备，需要 `toxicology`、`pharmacology`、`chemistry`、`drug-registration` 齐力推进
+- 一项文献荟萃分析，需要 `ov-retriever`、`literature-analyzer`、`data-extractor`、`report-writing` 流水线运转
+
+---
+
+## 团队成员（Sub-Agents）
+
+### 战略层
+
+| Agent | 职责 |
+|-------|------|
+| `cmo-gpl` | **首席医学官 / 全球项目负责人**：临床开发策略、获益-风险评估、阶段推进决策、跨职能对齐 |
+| `gpm` | **全球项目经理**：整合开发计划（IDP）、关键路径分析、风险登记册、里程碑规划（IND/EOP2/NDA）|
+
+### 临床科学层
+
+| Agent | 职责 |
+|-------|------|
+| `trial-design` | **临床试验设计专家**：方案撰写、随机化与盲法设计、终点选择、适应性设计（ICH E6/E8/E9/E10） |
+| `parkinson-clinical` | **帕金森病临床专家**：PD 病理、分期、评分量表（MDS-UPDRS、PDQ-39）、生物标志物、SoC |
+| `trial-statistics` | **临床统计学家**：样本量计算、统计分析计划（SAP）、多重性控制、期中分析、MMRM/Cox 模型 |
+| `bioinformatics` | **生物信息学专家**：基因组学、生物标志物策略、伴随诊断（CDx）、NGS 分析、多组学 |
+
+### 运营与质量层
+
+| Agent | 职责 |
+|-------|------|
+| `clinical-ops` | **临床运营专家**：中心选择、CRO 管理、患者入组、风险监查（RBM/ICH E6(R2)）、IMP 供应链 |
+| `quality-control` | **质量与合规专家**：GCP/GLP/GMP 审计、CAPA、TMF 管理、监管检查准备 |
+| `data-management` | **临床数据管理专家**：CRF 设计、CDISC（CDASH/SDTM/ADaM）、EDC、医学编码（MedDRA/WHODrug）|
+
+### 药学与非临床层
+
+| Agent | 职责 |
+|-------|------|
+| `pharmacology` | **药理学专家**：PK/PD 建模、ADME、DDI 评估、首次人体剂量选择、暴露-效应分析 |
+| `toxicology` | **毒理学专家**：GLP 毒理研究设计、遗传毒性、NOAEL/MABEL 确定、ICH S 系列指南 |
+| `chemistry` | **CMC 专家**：药物物质/制剂开发、分析方法验证、稳定性研究（ICH Q 系列）、CTD 第 3 模块 |
+| `drug-registration` | **法规事务专家**：IND/NDA/BLA/MAA 申报策略、FDA/EMA/NMPA 路径规划、突破性疗法认定 |
+
+### 知识管理层
+
+| Agent | 职责 |
+|-------|------|
+| `literature-analyzer` | **文献分析专家**：单篇文献深度解读、研究设计评估、结论有效性分析 |
+| `data-extractor` | **数据提取专家**：从文献中提取结构化数值数据、构建跨研究对比表格 |
+| `ov-retriever` | **知识库检索专家**：基于 OpenViking 的语义检索，从已索引文献库中召回相关段落 |
+| `report-writing` | **临床文件撰写专家**：CSR（ICH E3）、研究者手册（IB）、方案摘要、监管简报文件 |
+
+---
 
 ## 快速开始
 
 ### 配置
 
-1. **克隆 DeerFlow 仓库**
+1. **克隆仓库**
 
    ```bash
-   git clone https://github.com/bytedance/deer-flow.git
-   cd deer-flow
+   git clone <repository-url>
+   cd deerflow-gpt-team
    ```
 
 2. **生成本地配置文件**
 
-   在项目根目录（`deer-flow/`）执行：
+   在项目根目录执行：
 
    ```bash
    make config
    ```
 
-   这个命令会基于示例模板生成本地配置文件。
+3. **配置模型**
 
-3. **配置你要使用的模型**
-
-   编辑 `config.yaml`，至少定义一个模型：
+   编辑 `config.yaml`，定义要使用的 LLM：
 
    ```yaml
    models:
-     - name: gpt-4                       # 内部标识
-       display_name: GPT-4               # 展示名称
-       use: langchain_openai:ChatOpenAI  # LangChain 类路径
-       model: gpt-4                      # API 使用的模型标识
-       api_key: $OPENAI_API_KEY          # API key（推荐使用环境变量）
-       max_tokens: 4096                  # 单次请求最大 tokens
-       temperature: 0.7                  # 采样温度
-
-     - name: openrouter-gemini-2.5-flash
-       display_name: Gemini 2.5 Flash (OpenRouter)
+     - name: gpt-4o
+       display_name: GPT-4o
        use: langchain_openai:ChatOpenAI
-       model: google/gemini-2.5-flash-preview
-       api_key: $OPENAI_API_KEY          # 这里 OpenRouter 依然沿用 OpenAI 兼容字段名
+       model: gpt-4o
+       api_key: $OPENAI_API_KEY
+       max_tokens: 4096
+       temperature: 0.7
+
+     - name: gpt-4o-mini
+       display_name: GPT-4o Mini
+       use: langchain_openai:ChatOpenAI
+       model: gpt-4o-mini
+       api_key: $OPENAI_API_KEY
+
+     - name: openrouter-claude-3-7-sonnet
+       display_name: Claude 3.7 Sonnet (OpenRouter)
+       use: langchain_openai:ChatOpenAI
+       model: anthropic/claude-3-7-sonnet
+       api_key: $OPENROUTER_API_KEY
        base_url: https://openrouter.ai/api/v1
    ```
 
-   OpenRouter 以及类似的 OpenAI 兼容网关，建议通过 `langchain_openai:ChatOpenAI` 配合 `base_url` 来配置。如果你更想用 provider 自己的环境变量名，也可以直接把 `api_key` 指向对应变量，例如 `api_key: $OPENROUTER_API_KEY`。
+   通过 `langchain_openai:ChatOpenAI` + `base_url` 可以对接任何 OpenAI 兼容网关（OpenRouter、Azure OpenAI、本地 Ollama 等）。
 
-4. **为已配置的模型设置 API key**
+4. **配置 API Key**
 
-   可任选以下一种方式：
-
-- 方式 A：编辑项目根目录下的 `.env` 文件（推荐）
+   编辑项目根目录的 `.env` 文件：
 
    ```bash
-   TAVILY_API_KEY=your-tavily-api-key
    OPENAI_API_KEY=your-openai-api-key
-   # 如果配置使用的是 langchain_openai:ChatOpenAI + base_url，OpenRouter 也会读取 OPENAI_API_KEY
-   # 其他 provider 的 key 按需补充
-   INFOQUEST_API_KEY=your-infoquest-api-key
-   ```
-
-- 方式 B：在 shell 中导出环境变量
-
-   ```bash
-   export OPENAI_API_KEY=your-openai-api-key
-   ```
-
-- 方式 C：直接编辑 `config.yaml`（不建议用于生产环境）
-
-   ```yaml
-   models:
-     - name: gpt-4
-       api_key: your-actual-api-key-here  # 替换为真实 key
+   TAVILY_API_KEY=your-tavily-api-key    # 网络搜索（可选）
+   OPENROUTER_API_KEY=your-key           # 如使用 OpenRouter
    ```
 
 ### 运行应用
 
 #### 方式一：Docker（推荐）
 
-**开发模式**（支持热更新，挂载源码）：
-
 ```bash
-make docker-init    # 拉取 sandbox 镜像（首次运行或镜像更新时执行）
-make docker-start   # 启动服务（会根据 config.yaml 自动判断 sandbox 模式）
+make docker-init    # 首次运行：拉取 sandbox 镜像
+make docker-start   # 启动所有服务
 ```
 
-如果 `config.yaml` 使用的是 provisioner 模式（`sandbox.use: deerflow.community.aio_sandbox:AioSandboxProvider` 且配置了 `provisioner_url`），`make docker-start` 才会启动 `provisioner`。
+访问地址：http://localhost:2026
 
-**生产模式**（本地构建镜像，并挂载运行期配置与数据）：
+生产模式：
 
 ```bash
 make up     # 构建镜像并启动全部生产服务
 make down   # 停止并移除容器
 ```
 
-> [!NOTE]
-> 当前 LangGraph agent server 通过开源 CLI 服务 `langgraph dev` 运行。
-
-访问地址：http://localhost:2026
-
-更完整的 Docker 开发说明见 [CONTRIBUTING.md](CONTRIBUTING.md)。
-
 #### 方式二：本地开发
-
-如果你更希望直接在本地启动各个服务：
-
-前提：先完成上面的“配置”步骤（`make config` 和模型 API key 配置）。`make dev` 需要有效配置文件，默认读取项目根目录下的 `config.yaml`，也可以通过 `DEER_FLOW_CONFIG_PATH` 覆盖。
-在 Windows 上，请使用 Git Bash 运行本地开发流程。基于 bash 的服务脚本不支持直接在原生 `cmd.exe` 或 PowerShell 中执行，且 WSL 也不保证可用，因为部分脚本依赖 Git for Windows 的 `cygpath` 等工具。
 
 1. **检查依赖环境**：
    ```bash
@@ -189,364 +189,267 @@ make down   # 停止并移除容器
 
 2. **安装依赖**：
    ```bash
-   make install  # 安装 backend + frontend 依赖
+   make install
    ```
 
 3. **（可选）预拉取 sandbox 镜像**：
    ```bash
-   # 如果使用 Docker / Container sandbox，建议先执行
    make setup-sandbox
    ```
 
-4. **启动服务**：
+4. **启动所有服务**：
    ```bash
    make dev
    ```
 
 5. **访问地址**：http://localhost:2026
 
+> 在 Windows 上请使用 Git Bash 运行本地开发流程。
+
 ### 进阶配置
+
 #### Sandbox 模式
 
-DeerFlow 支持多种 sandbox 执行方式：
-- **本地执行**（直接在宿主机上运行 sandbox 代码）
-- **Docker 执行**（在隔离的 Docker 容器里运行 sandbox 代码）
-- **Docker + Kubernetes 执行**（通过 provisioner 服务在 Kubernetes Pod 中运行 sandbox 代码）
+NextTask 支持三种 Sandbox 执行模式：
 
-Docker 开发时，服务启动行为会遵循 `config.yaml` 里的 sandbox 模式。在 Local / Docker 模式下，不会启动 `provisioner`。
+- **本地执行**：直接在宿主机运行 Agent 代码
+- **Docker 执行**：在隔离的 Docker 容器中运行
+- **Docker + Kubernetes**：通过 provisioner 服务在 K8s Pod 中运行
 
-如果要配置你自己的模式，参见 [Sandbox 配置指南](backend/docs/CONFIGURATION.md#sandbox)。
+配置方法见 [Sandbox 配置指南](backend/docs/CONFIGURATION.md#sandbox)。
 
 #### MCP Server
 
-DeerFlow 支持可配置的 MCP Server 和 skills，用来扩展能力。
-对于 HTTP/SSE MCP Server，还支持 OAuth token 流程（`client_credentials`、`refresh_token`）。
+NextTask 支持通过 MCP Server 扩展 Agent 工具集，支持 HTTP/SSE 传输方式，并内置 OAuth token 流程（`client_credentials`、`refresh_token`）。
+
 详细说明见 [MCP Server 指南](backend/docs/MCP_SERVER.md)。
 
 #### IM 渠道
 
-DeerFlow 支持从即时通讯应用接收任务。只要配置完成，对应渠道会自动启动，而且都不需要公网 IP。
+NextTask 支持从即时通讯应用直接向团队发送任务，无需公网 IP。
 
 | 渠道 | 传输方式 | 上手难度 |
-|---------|-----------|------------|
+|------|----------|----------|
 | Telegram | Bot API（long-polling） | 简单 |
 | Slack | Socket Mode | 中等 |
 | Feishu / Lark | WebSocket | 中等 |
 
-**`config.yaml` 中的配置示例：**
+**`config.yaml` 配置示例：**
 
 ```yaml
 channels:
-  # LangGraph Server URL（默认：http://localhost:2024）
   langgraph_url: http://localhost:2024
-  # Gateway API URL（默认：http://localhost:8001）
   gateway_url: http://localhost:8001
 
-  # 可选：所有移动端渠道共用的全局 session 默认值
+  # 全局 session 默认值
   session:
-    assistant_id: lead_agent  # 也可以填自定义 agent 名；渠道层会自动转换为 lead_agent + agent_name
+    assistant_id: lead_agent
     config:
       recursion_limit: 100
     context:
       thinking_enabled: true
       is_plan_mode: false
-      subagent_enabled: false
+      subagent_enabled: true     # 开启 Sub-Agent 协作
+
+  telegram:
+    enabled: true
+    bot_token: $TELEGRAM_BOT_TOKEN
+    allowed_users: []
+
+  slack:
+    enabled: true
+    bot_token: $SLACK_BOT_TOKEN
+    app_token: $SLACK_APP_TOKEN
+    allowed_users: []
 
   feishu:
     enabled: true
     app_id: $FEISHU_APP_ID
     app_secret: $FEISHU_APP_SECRET
-    # domain: https://open.feishu.cn       # 国内版（默认）
-    # domain: https://open.larksuite.com   # 国际版
-
-  slack:
-    enabled: true
-    bot_token: $SLACK_BOT_TOKEN     # xoxb-...
-    app_token: $SLACK_APP_TOKEN     # xapp-...（Socket Mode）
-    allowed_users: []               # 留空表示允许所有人
-
-  telegram:
-    enabled: true
-    bot_token: $TELEGRAM_BOT_TOKEN
-    allowed_users: []               # 留空表示允许所有人
-
-    # 可选：按渠道 / 按用户单独覆盖 session 配置
-    session:
-      assistant_id: mobile-agent  # 这里同样支持自定义 agent 名
-      context:
-        thinking_enabled: false
-      users:
-        "123456789":
-          assistant_id: vip-agent
-          config:
-            recursion_limit: 150
-          context:
-            thinking_enabled: true
-            subagent_enabled: true
 ```
 
-说明：
-- `assistant_id: lead_agent` 会直接调用默认的 LangGraph assistant。
-- 如果 `assistant_id` 填的是自定义 agent 名，DeerFlow 仍然会走 `lead_agent`，同时把该值注入为 `agent_name`，这样 IM 渠道也会生效对应 agent 的 SOUL 和配置。
-
-在 `.env` 里设置对应的 API key：
+在 `.env` 中设置对应 token：
 
 ```bash
-# Telegram
 TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrSTUvwxYZ
-
-# Slack
 SLACK_BOT_TOKEN=xoxb-...
 SLACK_APP_TOKEN=xapp-...
-
-# Feishu / Lark
 FEISHU_APP_ID=cli_xxxx
 FEISHU_APP_SECRET=your_app_secret
 ```
 
-**Telegram 配置**
-
-1. 打开 [@BotFather](https://t.me/BotFather)，发送 `/newbot`，复制生成的 HTTP API token。
-2. 在 `.env` 中设置 `TELEGRAM_BOT_TOKEN`，并在 `config.yaml` 里启用该渠道。
-
-**Slack 配置**
-
-1. 前往 [api.slack.com/apps](https://api.slack.com/apps) 创建 Slack App：Create New App → From scratch。
-2. 在 **OAuth & Permissions** 中添加 Bot Token Scopes：`app_mentions:read`、`chat:write`、`im:history`、`im:read`、`im:write`、`files:write`。
-3. 启用 **Socket Mode**，生成带 `connections:write` 权限的 App-Level Token（`xapp-...`）。
-4. 在 **Event Subscriptions** 中订阅 bot events：`app_mention`、`message.im`。
-5. 在 `.env` 中设置 `SLACK_BOT_TOKEN` 和 `SLACK_APP_TOKEN`，并在 `config.yaml` 中启用该渠道。
-
-**Feishu / Lark 配置**
-
-1. 在 [飞书开放平台](https://open.feishu.cn/) 创建应用，并启用 **Bot** 能力。
-2. 添加权限：`im:message`、`im:message.p2p_msg:readonly`、`im:resource`。
-3. 在 **事件订阅** 中订阅 `im.message.receive_v1`，连接方式选择 **长连接**。
-4. 复制 App ID 和 App Secret，在 `.env` 中设置 `FEISHU_APP_ID` 和 `FEISHU_APP_SECRET`，并在 `config.yaml` 中启用该渠道。
-
-**命令**
-
-渠道连接完成后，你可以直接在聊天窗口里和 DeerFlow 交互：
+**渠道内可用命令：**
 
 | 命令 | 说明 |
-|---------|-------------|
+|------|------|
 | `/new` | 开启新对话 |
 | `/status` | 查看当前 thread 信息 |
 | `/models` | 列出可用模型 |
-| `/memory` | 查看 memory |
+| `/memory` | 查看长期记忆 |
 | `/help` | 查看帮助 |
 
-> 没有命令前缀的消息会被当作普通聊天处理。DeerFlow 会自动创建 thread，并以对话方式回复。
+**Telegram 配置**：打开 [@BotFather](https://t.me/BotFather)，发送 `/newbot`，复制 HTTP API token。
+
+**Slack 配置**：
+1. 前往 [api.slack.com/apps](https://api.slack.com/apps) 创建 App
+2. 添加 Bot Token Scopes：`app_mentions:read`、`chat:write`、`im:history`、`im:read`、`im:write`、`files:write`
+3. 启用 Socket Mode，生成 App-Level Token（`xapp-...`）
+4. 订阅 bot events：`app_mention`、`message.im`
+
+**Feishu / Lark 配置**：
+1. 在[飞书开放平台](https://open.feishu.cn/)创建应用并启用 Bot 能力
+2. 添加权限：`im:message`、`im:message.p2p_msg:readonly`、`im:resource`
+3. 订阅 `im.message.receive_v1` 事件，选择**长连接**方式
 
 #### LangSmith 链路追踪
 
-DeerFlow 内置了 [LangSmith](https://smith.langchain.com) 集成，用于可观测性。启用后，所有 LLM 调用、agent 运行和工具执行都会被追踪，并在 LangSmith 仪表盘中展示。
-
-在 `.env` 文件中添加以下配置：
+在 `.env` 中添加以下配置即可启用全链路追踪：
 
 ```bash
 LANGSMITH_TRACING=true
 LANGSMITH_ENDPOINT=https://api.smith.langchain.com
 LANGSMITH_API_KEY=lsv2_pt_xxxxxxxxxxxxxxxx
-LANGSMITH_PROJECT=xxx
+LANGSMITH_PROJECT=your-project-name
 ```
 
-Docker 部署时，追踪默认关闭。在 `.env` 中设置 `LANGSMITH_TRACING=true` 和 `LANGSMITH_API_KEY` 即可启用。
+启用后，所有 LLM 调用、Agent 运行和工具执行都会记录在 LangSmith 仪表盘中。
 
-## 从 Deep Research 到 Super Agent Harness
+---
 
-DeerFlow 最初是一个 Deep Research 框架，后来社区把它一路推到了更远的地方。上线之后，开发者拿它去做的事情早就不止研究：搭数据流水线、生成演示文稿、快速起 dashboard、自动化内容流程，很多方向一开始连我们自己都没想到。
-
-这让我们意识到一件事：DeerFlow 不只是一个研究工具。它更像一个 **harness**，一个真正让 agents 把事情做完的运行时基础设施。
-
-所以我们把它从头重做了一遍。
-
-DeerFlow 2.0 不再是一个需要你自己拼装的 framework。它是一个开箱即用、同时又足够可扩展的 super agent harness。基于 LangGraph 和 LangChain 构建，默认就带上了 agent 真正会用到的关键能力：文件系统、memory、skills、sandbox 执行环境，以及为复杂多步骤任务做规划、拉起 sub-agents 的能力。
-
-你可以直接拿来用，也可以拆开重组，改成你自己的样子。
-
-## 核心特性
+## 核心能力
 
 ### Skills 与 Tools
 
-Skills 是 DeerFlow 能做“几乎任何事”的关键。
+Skills 是 NextTask 能力扩展的核心机制。每个 Skill 是一个包含 `SKILL.md` 的目录，定义了工作流、最佳实践和工具授权规则。
 
-标准的 Agent Skill 是一种结构化能力模块，通常就是一个 Markdown 文件，里面定义了工作流、最佳实践，以及相关的参考资源。DeerFlow 自带一批内置 skills，覆盖研究、报告生成、演示文稿制作、网页生成、图像和视频生成等场景。真正有意思的地方在于它的扩展性：你可以加自己的 skills，替换内置 skills，或者把多个 skills 组合成复合工作流。
+Skills 采用按需渐进加载，只有任务确实需要时才注入上下文，保持 token 使用高效。
 
-Skills 采用按需渐进加载，不会一次性把所有内容都塞进上下文。只有任务确实需要时才加载，这样能把上下文窗口控制得更干净，也更适合对 token 比较敏感的模型。
-
-通过 Gateway 安装 `.skill` 压缩包时，DeerFlow 会接受标准的可选 frontmatter 元数据，比如 `version`、`author`、`compatibility`，不会把本来合法的外部 skill 拒之门外。
-
-Tools 也是同样的思路。DeerFlow 自带一组核心工具：网页搜索、网页抓取、文件操作、bash 执行；同时也支持通过 MCP Server 和 Python 函数扩展自定义工具。你可以替换任何一项，也可以继续往里加。
-
-Gateway 生成后续建议时，现在会先把普通字符串输出和 block/list 风格的富文本内容统一归一化，再去解析 JSON 数组响应，因此不同 provider 的内容包装方式不会再悄悄把建议吞掉。
+内置 Skills 覆盖：研究分析、报告生成、演示文稿制作、网页生成、图像和视频生成等。
 
 ```text
-# sandbox 容器内的路径
-/mnt/skills/public
-├── research/SKILL.md
-├── report-generation/SKILL.md
-├── slide-creation/SKILL.md
-├── web-page/SKILL.md
-└── image-generation/SKILL.md
-
-/mnt/skills/custom
-└── your-custom-skill/SKILL.md      ← 你的 skill
+skills/
+├── public/                     # 内置 Skills（版本控制）
+│   ├── research/SKILL.md
+│   ├── report-generation/SKILL.md
+│   ├── slide-creation/SKILL.md
+│   └── image-generation/SKILL.md
+└── custom/                     # 自定义 Skills（不纳入版本控制）
+    └── your-custom-skill/SKILL.md
 ```
 
-#### Claude Code 集成
-
-借助 `claude-to-deerflow` skill，你可以直接在 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 里和正在运行的 DeerFlow 实例交互。不用离开终端，就能下发研究任务、查看状态、管理 threads。
-
-**安装这个 skill：**
-
-```bash
-npx skills add https://github.com/bytedance/deer-flow --skill claude-to-deerflow
-```
-
-然后确认 DeerFlow 已经启动（默认地址是 `http://localhost:2026`），在 Claude Code 里使用 `/claude-to-deerflow` 命令即可。
-
-**你可以做的事情包括：**
-- 给 DeerFlow 发送消息，并接收流式响应
-- 选择执行模式：flash（更快）、standard、pro（规划模式）、ultra（sub-agents 模式）
-- 检查 DeerFlow 健康状态，列出 models / skills / agents
-- 管理 threads 和会话历史
-- 上传文件做分析
-
-**环境变量**（可选，用于自定义端点）：
-
-```bash
-DEERFLOW_URL=http://localhost:2026            # 统一代理基地址
-DEERFLOW_GATEWAY_URL=http://localhost:2026    # Gateway API
-DEERFLOW_LANGGRAPH_URL=http://localhost:2026/api/langgraph  # LangGraph API
-```
-
-完整 API 说明见 [`skills/public/claude-to-deerflow/SKILL.md`](skills/public/claude-to-deerflow/SKILL.md)。
-
-### Sub-Agents
-
-复杂任务通常不可能一次完成，DeerFlow 会先拆解，再执行。
-
-lead agent 可以按需动态拉起 sub-agents。每个 sub-agent 都有自己独立的上下文、工具和终止条件。只要条件允许，它们就会并行运行，返回结构化结果，最后再由 lead agent 汇总成一份完整输出。
-
-这也是 DeerFlow 能处理从几分钟到几小时任务的原因。比如一个研究任务，可以拆成十几个 sub-agents，分别探索不同方向，最后合并成一份报告，或者一个网站，或者一套带生成视觉内容的演示文稿。一个 harness，多路并行。
+**Tools** 方面，NextTask 内置：网页搜索、网页抓取、文件操作、Bash 执行，并支持通过 MCP Server 和 Python 函数扩展自定义工具。
 
 ### Sandbox 与文件系统
 
-DeerFlow 不只是“会说它能做”，它是真的有一台自己的“电脑”。
-
-每个任务都运行在隔离的 Docker 容器里，里面有完整的文件系统，包括 skills、workspace、uploads、outputs。agent 可以读写和编辑文件，可以执行 bash 命令和代码，也可以查看图片。整个过程都在 sandbox 内完成，可审计、会隔离，不会在不同 session 之间互相污染。
-
-这就是“带工具的聊天机器人”和“真正有执行环境的 agent”之间的差别。
+每个任务运行在独立的 Docker 容器中，提供完整的文件系统隔离：
 
 ```text
-# sandbox 容器内的路径
 /mnt/user-data/
-├── uploads/          ← 你的文件
-├── workspace/        ← agents 的工作目录
+├── uploads/          ← 上传文件
+├── workspace/        ← Agent 工作目录
 └── outputs/          ← 最终交付物
 ```
 
+Agent 可以读写文件、执行 Bash 命令和代码、查看图片。整个执行过程可审计、隔离，不同 session 之间不会互相污染。
+
 ### Context Engineering
 
-**隔离的 Sub-Agent Context**：每个 sub-agent 都在自己独立的上下文里运行。它看不到主 agent 的上下文，也看不到其他 sub-agents 的上下文。这样做的目的很直接，就是让它只聚焦当前任务，不被无关信息干扰。
+**隔离的 Sub-Agent Context**：每个 Sub-Agent 运行在独立的上下文中，只聚焦当前被委托的任务，不受主 Agent 或其他 Sub-Agent 上下文干扰。
 
-**摘要压缩**：在单个 session 内，DeerFlow 会比较积极地管理上下文，包括总结已完成的子任务、把中间结果转存到文件系统、压缩暂时不重要的信息。这样在长链路、多步骤任务里，它也能保持聚焦，而不会轻易把上下文窗口打爆。
+**摘要压缩**：在长链路多步骤任务中，NextTask 会主动管理上下文：总结已完成子任务、将中间结果转存到文件系统、压缩暂时不重要的信息，防止上下文窗口溢出。
+
+**并发调度**：最多 3 个 Sub-Agent 并行运行（`MAX_CONCURRENT_SUBAGENTS = 3`），单个 Sub-Agent 超时时限 15 分钟。
 
 ### 长期记忆
 
-大多数 agents 会在对话结束后把一切都忘掉，DeerFlow 不一样。
+NextTask 跨 session 积累持久记忆，记录用户偏好、知识背景和工作习惯。记忆存储在本地，控制权始终在用户手里。
 
-跨 session 使用时，DeerFlow 会逐步积累关于你的持久 memory，包括你的个人偏好、知识背景，以及长期沉淀下来的工作习惯。你用得越多，它越了解你的写作风格、技术栈和重复出现的工作流。memory 保存在本地，控制权也始终在你手里。
+记忆系统结构：
+- **User Context**：工作背景、个人偏好、当前关注点（动态摘要）
+- **History**：近期记录、较早背景、长期积累
+- **Facts**：离散事实，含类别（偏好/知识/背景/行为/目标）和置信度
+
+每次对话时，Top 15 条最相关的 facts 和上下文摘要会自动注入 system prompt。
+
+---
 
 ## 推荐模型
 
-DeerFlow 对模型没有强绑定，只要实现了 OpenAI 兼容 API 的 LLM，理论上都可以接入。不过在下面这些能力上表现更强的模型，通常会更适合 DeerFlow：
+NextTask 对任何实现了 OpenAI 兼容 API 的 LLM 均可接入。以下能力对于临床开发类任务尤为重要：
 
-- **长上下文窗口**（100k+ tokens），适合深度研究和多步骤任务
-- **推理能力**，适合自适应规划和复杂拆解
-- **多模态输入**，适合理解图片和视频
-- **稳定的 tool use 能力**，适合可靠的函数调用和结构化输出
+- **长上下文窗口**（100k+ tokens）：适合方案文件阅读和多步骤分析
+- **强推理能力**：适合自适应规划和复杂任务拆解
+- **多模态输入**：适合图像理解（例如 DICOM 图像、数据图表）
+- **稳定的 Tool Use**：适合可靠的函数调用和结构化输出
+
+推荐：GPT-4o、Claude Sonnet/Opus、Gemini 2.5 Pro/Flash。
+
+---
 
 ## 内嵌 Python Client
 
-DeerFlow 也可以作为内嵌的 Python 库使用，不必启动完整的 HTTP 服务。`DeerFlowClient` 提供了进程内的直接访问方式，覆盖所有 agent 和 Gateway 能力，返回的数据结构与 HTTP Gateway API 保持一致：
+NextTask 也可以作为内嵌的 Python 库使用，不必启动完整的 HTTP 服务：
 
 ```python
 from deerflow.client import DeerFlowClient
 
 client = DeerFlowClient()
 
-# Chat
-response = client.chat("Analyze this paper for me", thread_id="my-thread")
+# 普通对话
+response = client.chat("请为一个 PD 早期干预研究设计 II 期方案框架", thread_id="my-thread")
 
-# Streaming（LangGraph SSE 协议：values、messages-tuple、end）
-for event in client.stream("hello"):
+# 流式输出
+for event in client.stream("帮我分析这篇 MDS-UPDRS 验证研究"):
     if event.type == "messages-tuple" and event.data.get("type") == "ai":
         print(event.data["content"])
 
-# 配置与管理：返回值与 Gateway 对齐的 dict
-models = client.list_models()        # {"models": [...]}
-skills = client.list_skills()        # {"skills": [...]}
-client.update_skill("web-search", enabled=True)
-client.upload_files("thread-1", ["./report.pdf"])  # {"success": True, "files": [...]}
+# 配置与管理
+models = client.list_models()         # {"models": [...]}
+skills = client.list_skills()         # {"skills": [...]}
+client.update_skill("research", enabled=True)
+client.upload_files("thread-1", ["./protocol.pdf"])
 ```
 
-所有返回 dict 的方法都会在 CI 中通过 Gateway 的 Pydantic 响应模型校验（`TestGatewayConformance`），以确保内嵌 client 始终和 HTTP API schema 保持同步。完整 API 说明见 `backend/packages/harness/deerflow/client.py`。
+所有返回 dict 的方法都与 Gateway HTTP API schema 保持一致，通过 `TestGatewayConformance` 在 CI 中持续验证。完整 API 见 `backend/packages/harness/deerflow/client.py`。
+
+---
 
 ## 文档
 
-- [贡献指南](CONTRIBUTING.md) - 开发环境搭建与协作流程
-- [配置指南](backend/docs/CONFIGURATION.md) - 安装与配置说明
-- [架构概览](backend/CLAUDE.md) - 技术架构说明
-- [后端架构](backend/README.md) - 后端架构与 API 参考
+- [贡献指南](CONTRIBUTING.md) — 开发环境搭建与协作流程
+- [配置指南](backend/docs/CONFIGURATION.md) — 详细配置说明
+- [架构概览](backend/CLAUDE.md) — 技术架构说明
+- [后端架构](backend/README.md) — 后端架构与 API 参考
 
-## ⚠️ 安全使用
+---
 
-### 不恰当的部署可能导致安全风险
+## 安全使用
 
-DeerFlow 具备**系统指令执行、资源操作、业务逻辑调用**等关键高权限能力，默认设计为**部署在本地可信环境（仅本机 127.0.0.1 回环访问）**。若您将 agent 部署至不可信局域网、公网云服务器等可被多终端访问的网络环境，且未采取严格的安全防护措施，可能导致安全风险，例如：
+NextTask 具备**系统指令执行、文件操作、业务逻辑调用**等高权限能力，默认设计为**部署在本地可信环境（仅本机 127.0.0.1 回环访问）**。
 
-- **未授权的非法调用**：agent 功能被未授权的第三方、公网恶意扫描程序探测到，进而发起批量非法调用请求，执行系统命令、文件读写等高危操作，可能导致安全后果。
-- **合规与法律风险**：若 agent 被非法调用用于实施网络攻击、信息窃取等违法违规行为，可能产生法律责任与合规风险。
+若需要跨设备或跨网络部署，必须采取以下安全措施：
 
-### 安全使用建议
+- **IP 白名单**：通过 `iptables` 或硬件防火墙配置访问控制规则
+- **前置身份验证**：通过 nginx 等反向代理开启强身份验证
+- **网络隔离**：将 NextTask 和可信设备划分至同一专用 VLAN
 
-**注意：建议您将 DeerFlow 部署在本地可信的网络环境下。** 若您有跨设备、跨网络的部署需求，必须加入严格的安全措施。例如，采取如下手段：
-
-- **设置访问 IP 白名单**：使用 `iptables`，或部署硬件防火墙 / 带访问控制（ACL）功能的交换机等，**配置规则设置 IP 白名单**，拒绝其他所有 IP 进行访问。
-- **前置身份验证**：配置反向代理（nginx 等），并**开启高强度的前置身份验证功能**，禁止无任何身份验证的访问。
-- **网络隔离**：若有可能，建议将 agent 和可信设备划分到**同一个专用 VLAN**，与其他网络设备做隔离。
-- **持续关注项目更新**：请持续关注 DeerFlow 项目的安全功能更新。
+---
 
 ## 参与贡献
 
 欢迎参与贡献。开发环境、工作流和相关规范见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-目前回归测试已经覆盖 Docker sandbox 模式识别，以及 `backend/tests/` 中 provisioner kubeconfig-path 处理相关测试。
+---
 
 ## 许可证
 
 本项目采用 [MIT License](./LICENSE) 开源发布。
 
+---
+
 ## 致谢
 
-DeerFlow 建立在开源社区大量优秀工作的基础上。所有让 DeerFlow 成为可能的项目和贡献者，我们都心怀感谢。毫不夸张地说，我们是站在巨人的肩膀上继续往前走。
+NextTask 建立在以下开源项目的基础之上：
 
-特别感谢以下项目带来的关键支持：
-
-- **[LangChain](https://github.com/langchain-ai/langchain)**：它们提供的优秀框架支撑了我们的 LLM 交互与 chains，让整体集成和能力编排顺畅可用。
-- **[LangGraph](https://github.com/langchain-ai/langgraph)**：它们在多 agent 编排上的创新方式，是 DeerFlow 复杂工作流得以成立的重要基础。
-
-这些项目体现了开源协作真正的力量，我们也很高兴能继续建立在这些基础之上。
-
-### 核心贡献者
-
-感谢 `DeerFlow` 的核心作者，是他们的判断、投入和持续推进，才让这个项目真正落地：
-
-- **[Daniel Walnut](https://github.com/hetaoBackend/)**
-- **[Henry Li](https://github.com/magiccube/)**
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=bytedance/deer-flow&type=Date)](https://star-history.com/#bytedance/deer-flow&Date)
+- **[LangChain](https://github.com/langchain-ai/langchain)**：提供 LLM 交互与 chains 支持
+- **[LangGraph](https://github.com/langchain-ai/langgraph)**：支撑多 Agent 编排与复杂工作流
