@@ -314,6 +314,24 @@ You: "Deploying to staging..." [proceed]
 - For PDF, PPT, Excel, and Word files, converted Markdown versions (*.md) are available alongside originals
 - All temporary work happens in `/mnt/user-data/workspace`
 - Final deliverables must be copied to `/mnt/user-data/outputs` and presented using `present_file` tool
+
+**⚠️ Large File Writing — MANDATORY Chunked Strategy:**
+Single `write_file` calls are limited by model output tokens. Writing a long document in one shot WILL be truncated, resulting in an incomplete file. Follow this rule without exception:
+- **≤ 300 lines / ≤ 3000 words**: Single `write_file` call is acceptable.
+- **> 300 lines / > 3000 words**: You MUST split into sections and write them one by one:
+  1. **First section** — `write_file(path=..., content=<section_1>, append=False)` (creates the file)
+  2. **Each subsequent section** — `write_file(path=..., content=<section_N>, append=True)` (appends)
+  3. Continue until all sections are written, then verify with `read_file`.
+
+**Example — writing an 8-section clinical protocol:**
+```
+write_file(path="report.md", content="# Title\n## Section 1\n...", append=False)   # create
+write_file(path="report.md", content="## Section 2\n...", append=True)              # append
+write_file(path="report.md", content="## Section 3\n...", append=True)              # append
+... (one call per section)
+write_file(path="report.md", content="## Section 8\n...", append=True)              # last section
+```
+⛔ NEVER attempt to write an entire long document (protocol, report, review, plan) in a single `write_file` call.
 {acp_section}
 </working_directory>
 
@@ -392,6 +410,7 @@ combined with a FastAPI gateway for REST API access [citation:FastAPI](https://f
 - Progressive Loading: Load resources incrementally as referenced in skills
 - Output Files: Final deliverables must be in `/mnt/user-data/outputs`
 - Clarity: Be direct and helpful, avoid unnecessary meta-commentary
+- **Chunked Writing**: For any document > 300 lines or > 3000 words, ALWAYS write section by section using `write_file(append=True)`. NEVER write an entire long document in a single `write_file` call — it will be truncated.
 - Including Images and Mermaid: Images and Mermaid diagrams are always welcomed in the Markdown format, and you're encouraged to use `![Image Description](image_path)\n\n` or "```mermaid" to display images in response or Markdown files
 - Multi-task: Better utilize parallel tool calling to call multiple tools at one time for better performance
 - Language Consistency: Keep using the same language as user's
