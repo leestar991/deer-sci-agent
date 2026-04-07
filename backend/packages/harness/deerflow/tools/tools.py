@@ -18,6 +18,7 @@ BUILTIN_TOOLS = [
 SUBAGENT_TOOLS = [
     task_tool,
     # task_status_tool is no longer exposed to LLM (backend handles polling internally)
+    # aggregate_results_tool is loaded lazily in get_available_tools() to avoid circular imports
 ]
 
 
@@ -67,7 +68,15 @@ def get_available_tools(
     # Add subagent tools only if enabled via runtime parameter
     if subagent_enabled:
         builtin_tools.extend(SUBAGENT_TOOLS)
-        logger.info("Including subagent tools (task)")
+        # aggregate_results_tool is lazily imported here to avoid circular imports
+        # (it depends on deerflow.agents.thread_state which re-imports this module)
+        try:
+            from deerflow.tools.builtins.aggregate_tool import aggregate_results_tool
+
+            builtin_tools.append(aggregate_results_tool)
+        except Exception as e:
+            logger.warning(f"Failed to load aggregate_results_tool: {e}")
+        logger.info("Including subagent tools (task, aggregate_results)")
 
     # If no model_name specified, use the first model (default)
     if model_name is None and config.models:

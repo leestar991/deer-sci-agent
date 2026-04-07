@@ -10,4 +10,5 @@ __all__ = [
     "ask_clarification_tool",
     "view_image_tool",
     "task_tool",
+    # aggregate_results_tool is imported lazily via get_available_tools() to avoid circular imports
 ]

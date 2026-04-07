@@ -19,6 +19,8 @@ from langchain_core.runnables import RunnableConfig
 from deerflow.agents.thread_state import SandboxState, ThreadDataState, ThreadState
 from deerflow.models import create_chat_model
 from deerflow.subagents.config import SubagentConfig
+from deerflow.subagents.session_memory import save_session_entry
+from deerflow.subagents.shared_memory import append_entry as append_shared_entry
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +136,54 @@ def _get_model_name(config: SubagentConfig, parent_model: str | None) -> str | N
     return config.model
 
 
+def _extract_task_summary(result_text: str | None, ai_messages: list[dict]) -> tuple[str, list[str]]:
+    """Extract a concise summary and key insights from a completed task result.
+
+    Returns (summary, key_insights).
+    """
+    # Use the result text directly if it's within a reasonable size
+    raw = (result_text or "").strip()
+    if len(raw) <= 800:
+        summary = raw
+    else:
+        # Truncate at word boundary
+        summary = raw[:800].rsplit(" ", 1)[0] + "..."
+
+    # Extract key insights: take up to 5 bullet-looking lines from result
+    insights: list[str] = []
+    for line in raw.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(("-", "•", "*", "·")) and len(stripped) > 5:
+            insights.append(stripped.lstrip("-•*· ").strip())
+        if len(insights) >= 5:
+            break
+
+    return summary, insights
+
+
+def _extract_output_files(ai_messages: list[dict]) -> list[str]:
+    """Scan ai_messages tool_calls for write_file calls and return output paths."""
+    paths: list[str] = []
+    for msg in ai_messages:
+        tool_calls = msg.get("tool_calls") or []
+        for tc in tool_calls:
+            if isinstance(tc, dict):
+                fn = tc.get("name") or tc.get("function", {}).get("name", "")
+                if fn == "write_file":
+                    args = tc.get("args") or {}
+                    if not isinstance(args, dict):
+                        try:
+                            import json as _json
+
+                            args = _json.loads(args)
+                        except Exception:
+                            args = {}
+                    file_path = args.get("file_path") or args.get("path", "")
+                    if file_path and "/outputs/" in file_path:
+                        paths.append(file_path)
+    return paths
+
+
 class SubagentExecutor:
     """Executor for running subagents."""
 
@@ -210,7 +260,26 @@ class SubagentExecutor:
         if self.sandbox_state is not None:
             state["sandbox"] = self.sandbox_state
         if self.thread_data is not None:
-            state["thread_data"] = self.thread_data
+            thread_data = self.thread_data
+            # Workspace isolation: give each subagent its own subdirectory under workspace/
+            # uploads/ and outputs/ remain shared so parent can read subagent artefacts.
+            if self.config.workspace_isolated:
+                try:
+                    from pathlib import Path as _Path
+
+                    ws_path = thread_data.get("workspace_path") if isinstance(thread_data, dict) else getattr(thread_data, "workspace_path", None)
+                    if ws_path:
+                        subagent_ws = _Path(str(ws_path)) / self.config.name
+                        subagent_ws.mkdir(parents=True, exist_ok=True)
+                        if isinstance(thread_data, dict):
+                            thread_data = {**thread_data, "workspace_path": str(subagent_ws)}
+                        else:
+                            # dataclass / typed dict — rebuild as plain dict
+                            thread_data = dict(thread_data)
+                            thread_data["workspace_path"] = str(subagent_ws)
+                except Exception:
+                    pass  # isolation is best-effort; fall back to shared workspace
+            state["thread_data"] = thread_data
 
         return state
 
@@ -353,6 +422,36 @@ class SubagentExecutor:
 
             result.status = SubagentStatus.COMPLETED
             result.completed_at = datetime.now()
+
+            # Post-task hooks: write session memory and shared memory
+            if self.thread_id:
+                try:
+                    summary, insights = _extract_task_summary(result.result, result.ai_messages or [])
+                    output_files = _extract_output_files(result.ai_messages or [])
+                    task_id_for_mem = result.task_id
+
+                    if self.config.session_memory_enabled:
+                        save_session_entry(
+                            thread_id=self.thread_id,
+                            subagent_name=self.config.name,
+                            task_id=task_id_for_mem,
+                            prompt_digest=task[:200],
+                            summary=summary,
+                            key_insights=insights,
+                            output_files=output_files,
+                        )
+
+                    if self.config.shared_memory_write:
+                        append_shared_entry(
+                            thread_id=self.thread_id,
+                            task_id=task_id_for_mem,
+                            subagent_name=self.config.name,
+                            summary=summary,
+                            key_findings=insights,
+                            output_files=output_files,
+                        )
+                except Exception:
+                    logger.warning(f"[trace={self.trace_id}] Subagent {self.config.name} failed to write post-task memory", exc_info=True)
 
         except Exception as e:
             logger.exception(f"[trace={self.trace_id}] Subagent {self.config.name} async execution failed")

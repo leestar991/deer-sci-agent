@@ -26,3 +26,6 @@ class SubagentConfig:
     model: str = "inherit"
     max_turns: int = 50
     timeout_seconds: int = 900
+    workspace_isolated: bool = True
+    session_memory_enabled: bool = True
+    shared_memory_write: bool = True

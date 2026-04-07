@@ -202,9 +202,21 @@ async def task_tool(
         trace_id=trace_id,
     )
 
+    # Inject session memory context if available (gives subagent continuity within this thread)
+    enhanced_prompt = prompt
+    if thread_id and config.session_memory_enabled:
+        try:
+            from deerflow.subagents.session_memory import load_session_context
+
+            session_ctx = load_session_context(thread_id, subagent_type)
+            if session_ctx:
+                enhanced_prompt = f"<session_memory>\n{session_ctx}\n</session_memory>\n\nCurrent task:\n{prompt}"
+        except Exception:
+            pass  # session memory is best-effort; proceed without it
+
     # Start background execution (always async to prevent blocking)
     # Use tool_call_id as task_id for better traceability
-    task_id = executor.execute_async(prompt, task_id=tool_call_id)
+    task_id = executor.execute_async(enhanced_prompt, task_id=tool_call_id)
 
     # Poll for task completion in backend (removes need for LLM to poll)
     poll_count = 0

@@ -166,6 +166,18 @@ class Paths:
         """Per-thread session memory: `{base_dir}/threads/{thread_id}/session-memory.json`."""
         return self.thread_dir(thread_id) / "session-memory.json"
 
+    def subagent_session_dir(self, thread_id: str) -> Path:
+        """Per-thread subagent session directory: `{base_dir}/threads/{thread_id}/subagent_sessions/`."""
+        return self.thread_dir(thread_id) / "subagent_sessions"
+
+    def subagent_session_file(self, thread_id: str, subagent_name: str) -> Path:
+        """Per-subagent session file: `{base_dir}/threads/{thread_id}/subagent_sessions/{subagent_name}.json`."""
+        return self.subagent_session_dir(thread_id) / f"{subagent_name}.json"
+
+    def shared_memory_file(self, thread_id: str) -> Path:
+        """Per-thread shared memory: `{base_dir}/threads/{thread_id}/shared_memory.json`."""
+        return self.thread_dir(thread_id) / "shared_memory.json"
+
     def thread_ownership_file(self) -> Path:
         """Global thread-to-user ownership mapping: `{base_dir}/thread-ownership.json`."""
         return self.base_dir / "thread-ownership.json"
