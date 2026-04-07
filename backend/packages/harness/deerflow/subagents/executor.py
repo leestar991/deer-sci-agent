@@ -72,6 +72,35 @@ _background_tasks_lock = threading.Lock()
 # Default concurrency constant (kept for backward compatibility; runtime value from config)
 MAX_CONCURRENT_SUBAGENTS = 5
 
+# Injected into every subagent that has write_file access.
+# Prevents max_tokens truncation from silently dropping the `content` field,
+# which causes a Pydantic ValidationError and hard task failure.
+_CHUNKED_WRITE_GUIDANCE = """
+
+<file_writing_rules>
+⚠️ MANDATORY: Write large documents in chunks — never in a single write_file call.
+
+Model output is capped at ~16 000 tokens. If write_file content exceeds that limit the
+JSON tool call is truncated, the `content` field is lost, and the task fails with a
+validation error.
+
+Rules:
+- ≤ 300 lines / ≤ 3 000 words  → single write_file call is acceptable.
+- > 300 lines / > 3 000 words  → MUST split by section:
+    1. First section  : write_file(path=..., content=<section_1>, append=False)
+    2. Each next part : write_file(path=..., content=<section_N>, append=True)
+    3. Verify with read_file after all sections are written.
+
+Example — 8-section clinical protocol:
+  write_file(path="protocol.md", content="# Title\\n## 1. Study Design\\n...", append=False)
+  write_file(path="protocol.md", content="## 2. Dose Selection\\n...",          append=True)
+  write_file(path="protocol.md", content="## 3. Randomisation\\n...",            append=True)
+  ... one call per section ...
+  write_file(path="protocol.md", content="## 8. Safety Monitoring\\n...",        append=True)
+
+⛔ NEVER write an entire report, protocol, CSR, IB, or SAP in a single write_file call.
+</file_writing_rules>"""
+
 
 def get_max_concurrent() -> int:
     """Return the configured maximum concurrent subagent calls.
@@ -235,11 +264,19 @@ class SubagentExecutor:
         # Reuse shared middleware composition with lead agent.
         middlewares = build_subagent_runtime_middlewares(lazy_init=True)
 
+        # Inject chunked-write guidance when the subagent has write_file access.
+        # This prevents max_tokens truncation that silently drops the `content` field,
+        # causing a Pydantic ValidationError and a hard task failure.
+        system_prompt = self.config.system_prompt
+        tool_names = {t.name for t in self.tools if hasattr(t, "name")}
+        if "write_file" in tool_names:
+            system_prompt = system_prompt + _CHUNKED_WRITE_GUIDANCE
+
         return create_agent(
             model=model,
             tools=self.tools,
             middleware=middlewares,
-            system_prompt=self.config.system_prompt,
+            system_prompt=system_prompt,
             state_schema=ThreadState,
         )
 
