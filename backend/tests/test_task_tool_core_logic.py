@@ -98,6 +98,7 @@ def test_task_tool_returns_error_for_unknown_subagent(monkeypatch):
 
 def test_task_tool_rejects_bash_subagent_when_host_bash_disabled(monkeypatch):
     monkeypatch.setattr(task_tool_module, "get_subagent_config", lambda _: _make_subagent_config())
+    monkeypatch.setattr(task_tool_module, "get_available_subagent_names", lambda: ["bash", "general-purpose"])
     monkeypatch.setattr(task_tool_module, "is_host_bash_allowed", lambda: False)
 
     result = _run_task_tool(
@@ -142,6 +143,7 @@ def test_task_tool_emits_running_and_completed_events(monkeypatch):
     monkeypatch.setattr(task_tool_module, "SubagentStatus", FakeSubagentStatus)
     monkeypatch.setattr(task_tool_module, "SubagentExecutor", DummyExecutor)
     monkeypatch.setattr(task_tool_module, "get_subagent_config", lambda _: config)
+    monkeypatch.setattr(task_tool_module, "get_available_subagent_names", lambda: ["general-purpose"])
     monkeypatch.setattr(task_tool_module, "get_skills_prompt_section", lambda: "Skills Appendix")
     monkeypatch.setattr(task_tool_module, "get_background_task_result", lambda _: next(responses))
     monkeypatch.setattr(task_tool_module, "get_stream_writer", lambda: events.append)
@@ -168,12 +170,15 @@ def test_task_tool_emits_running_and_completed_events(monkeypatch):
 
     get_available_tools.assert_called_once_with(model_name="ark-model", subagent_enabled=False)
 
+    # task_todo_sync events are emitted at task_started and task_completed milestones
     event_types = [e["type"] for e in events]
-    assert event_types == ["task_started", "task_running", "task_running", "task_completed"]
-    assert events[-1]["result"] == "all done"
+    assert event_types == ["task_started", "task_todo_sync", "task_running", "task_running", "task_completed", "task_todo_sync"]
+    completed_event = next(e for e in events if e["type"] == "task_completed")
+    assert completed_event["result"] == "all done"
 
 
-def test_task_tool_returns_failed_message(monkeypatch):
+def test_task_tool_raises_on_failed_subagent(monkeypatch):
+    """Subagent FAILED status must raise RuntimeError so Lead Agent run fails hard."""
     config = _make_subagent_config()
     events = []
 
@@ -184,6 +189,7 @@ def test_task_tool_returns_failed_message(monkeypatch):
         type("DummyExecutor", (), {"__init__": lambda self, **kwargs: None, "execute_async": lambda self, prompt, task_id=None: task_id}),
     )
     monkeypatch.setattr(task_tool_module, "get_subagent_config", lambda _: config)
+    monkeypatch.setattr(task_tool_module, "get_available_subagent_names", lambda: ["general-purpose"])
     monkeypatch.setattr(task_tool_module, "get_skills_prompt_section", lambda: "")
     monkeypatch.setattr(
         task_tool_module,
@@ -194,20 +200,24 @@ def test_task_tool_returns_failed_message(monkeypatch):
     monkeypatch.setattr(task_tool_module.asyncio, "sleep", _no_sleep)
     monkeypatch.setattr("deerflow.tools.get_available_tools", lambda **kwargs: [])
 
-    output = _run_task_tool(
-        runtime=_make_runtime(),
-        description="执行任务",
-        prompt="do fail",
-        subagent_type="general-purpose",
-        tool_call_id="tc-fail",
-    )
+    with pytest.raises(RuntimeError, match="Subagent 'general-purpose' failed: subagent crashed"):
+        _run_task_tool(
+            runtime=_make_runtime(),
+            description="执行任务",
+            prompt="do fail",
+            subagent_type="general-purpose",
+            tool_call_id="tc-fail",
+        )
 
-    assert output == "Task failed. Error: subagent crashed"
-    assert events[-1]["type"] == "task_failed"
-    assert events[-1]["error"] == "subagent crashed"
+    # Failure event must have been emitted before the raise
+    # (task_todo_sync is appended after task_failed, so search by type)
+    failed_events = [e for e in events if e["type"] == "task_failed"]
+    assert len(failed_events) == 1
+    assert failed_events[0]["error"] == "subagent crashed"
 
 
-def test_task_tool_returns_timed_out_message(monkeypatch):
+def test_task_tool_raises_on_timed_out_subagent(monkeypatch):
+    """Subagent TIMED_OUT status must raise RuntimeError so Lead Agent run fails hard."""
     config = _make_subagent_config()
     events = []
 
@@ -218,6 +228,7 @@ def test_task_tool_returns_timed_out_message(monkeypatch):
         type("DummyExecutor", (), {"__init__": lambda self, **kwargs: None, "execute_async": lambda self, prompt, task_id=None: task_id}),
     )
     monkeypatch.setattr(task_tool_module, "get_subagent_config", lambda _: config)
+    monkeypatch.setattr(task_tool_module, "get_available_subagent_names", lambda: ["general-purpose"])
     monkeypatch.setattr(task_tool_module, "get_skills_prompt_section", lambda: "")
     monkeypatch.setattr(
         task_tool_module,
@@ -228,17 +239,20 @@ def test_task_tool_returns_timed_out_message(monkeypatch):
     monkeypatch.setattr(task_tool_module.asyncio, "sleep", _no_sleep)
     monkeypatch.setattr("deerflow.tools.get_available_tools", lambda **kwargs: [])
 
-    output = _run_task_tool(
-        runtime=_make_runtime(),
-        description="执行任务",
-        prompt="do timeout",
-        subagent_type="general-purpose",
-        tool_call_id="tc-timeout",
-    )
+    with pytest.raises(RuntimeError, match="Subagent 'general-purpose' timed out after 10s"):
+        _run_task_tool(
+            runtime=_make_runtime(),
+            description="执行任务",
+            prompt="do timeout",
+            subagent_type="general-purpose",
+            tool_call_id="tc-timeout",
+        )
 
-    assert output == "Task timed out. Error: timeout"
-    assert events[-1]["type"] == "task_timed_out"
-    assert events[-1]["error"] == "timeout"
+    # Timeout event must have been emitted before the raise
+    # (task_todo_sync is appended after task_timed_out, so search by type)
+    timed_out_events = [e for e in events if e["type"] == "task_timed_out"]
+    assert len(timed_out_events) == 1
+    assert timed_out_events[0]["error"] == "timeout"
 
 
 def test_task_tool_polling_safety_timeout(monkeypatch):
@@ -254,6 +268,7 @@ def test_task_tool_polling_safety_timeout(monkeypatch):
         type("DummyExecutor", (), {"__init__": lambda self, **kwargs: None, "execute_async": lambda self, prompt, task_id=None: task_id}),
     )
     monkeypatch.setattr(task_tool_module, "get_subagent_config", lambda _: config)
+    monkeypatch.setattr(task_tool_module, "get_available_subagent_names", lambda: ["general-purpose"])
     monkeypatch.setattr(task_tool_module, "get_skills_prompt_section", lambda: "")
     monkeypatch.setattr(
         task_tool_module,
@@ -274,7 +289,9 @@ def test_task_tool_polling_safety_timeout(monkeypatch):
 
     assert output.startswith("Task polling timed out after 0 minutes")
     assert events[0]["type"] == "task_started"
-    assert events[-1]["type"] == "task_timed_out"
+    # task_timed_out is emitted before the trailing task_todo_sync event
+    timed_out_events = [e for e in events if e["type"] == "task_timed_out"]
+    assert len(timed_out_events) == 1
 
 
 def test_cleanup_called_on_completed(monkeypatch):
@@ -318,7 +335,7 @@ def test_cleanup_called_on_completed(monkeypatch):
 
 
 def test_cleanup_called_on_failed(monkeypatch):
-    """Verify cleanup_background_task is called when task fails."""
+    """Verify cleanup_background_task is called when task fails (before RuntimeError is raised)."""
     config = _make_subagent_config()
     events = []
     cleanup_calls = []
@@ -330,6 +347,7 @@ def test_cleanup_called_on_failed(monkeypatch):
         type("DummyExecutor", (), {"__init__": lambda self, **kwargs: None, "execute_async": lambda self, prompt, task_id=None: task_id}),
     )
     monkeypatch.setattr(task_tool_module, "get_subagent_config", lambda _: config)
+    monkeypatch.setattr(task_tool_module, "get_available_subagent_names", lambda: ["general-purpose"])
     monkeypatch.setattr(task_tool_module, "get_skills_prompt_section", lambda: "")
     monkeypatch.setattr(
         task_tool_module,
@@ -345,20 +363,22 @@ def test_cleanup_called_on_failed(monkeypatch):
         lambda task_id: cleanup_calls.append(task_id),
     )
 
-    output = _run_task_tool(
-        runtime=_make_runtime(),
-        description="执行任务",
-        prompt="fail task",
-        subagent_type="general-purpose",
-        tool_call_id="tc-cleanup-failed",
-    )
+    # FAILED now raises RuntimeError so Lead Agent run fails hard
+    with pytest.raises(RuntimeError, match="Subagent 'general-purpose' failed: error"):
+        _run_task_tool(
+            runtime=_make_runtime(),
+            description="执行任务",
+            prompt="fail task",
+            subagent_type="general-purpose",
+            tool_call_id="tc-cleanup-failed",
+        )
 
-    assert output == "Task failed. Error: error"
+    # Cleanup must be called before the raise
     assert cleanup_calls == ["tc-cleanup-failed"]
 
 
 def test_cleanup_called_on_timed_out(monkeypatch):
-    """Verify cleanup_background_task is called when task times out."""
+    """Verify cleanup_background_task is called when task times out (before RuntimeError is raised)."""
     config = _make_subagent_config()
     events = []
     cleanup_calls = []
@@ -370,6 +390,7 @@ def test_cleanup_called_on_timed_out(monkeypatch):
         type("DummyExecutor", (), {"__init__": lambda self, **kwargs: None, "execute_async": lambda self, prompt, task_id=None: task_id}),
     )
     monkeypatch.setattr(task_tool_module, "get_subagent_config", lambda _: config)
+    monkeypatch.setattr(task_tool_module, "get_available_subagent_names", lambda: ["general-purpose"])
     monkeypatch.setattr(task_tool_module, "get_skills_prompt_section", lambda: "")
     monkeypatch.setattr(
         task_tool_module,
@@ -385,15 +406,17 @@ def test_cleanup_called_on_timed_out(monkeypatch):
         lambda task_id: cleanup_calls.append(task_id),
     )
 
-    output = _run_task_tool(
-        runtime=_make_runtime(),
-        description="执行任务",
-        prompt="timeout task",
-        subagent_type="general-purpose",
-        tool_call_id="tc-cleanup-timedout",
-    )
+    # TIMED_OUT now raises RuntimeError so Lead Agent run fails hard
+    with pytest.raises(RuntimeError, match="Subagent 'general-purpose' timed out"):
+        _run_task_tool(
+            runtime=_make_runtime(),
+            description="执行任务",
+            prompt="timeout task",
+            subagent_type="general-purpose",
+            tool_call_id="tc-cleanup-timedout",
+        )
 
-    assert output == "Task timed out. Error: timeout"
+    # Cleanup must be called before the raise
     assert cleanup_calls == ["tc-cleanup-timedout"]
 
 

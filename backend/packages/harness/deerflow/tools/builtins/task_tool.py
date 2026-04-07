@@ -273,17 +273,21 @@ async def task_tool(
                 cleanup_background_task(task_id)
                 return f"Task Succeeded. Result: {result.result}"
             elif result.status == SubagentStatus.FAILED:
+                error_msg = f"Subagent '{subagent_type}' failed: {result.error}"
                 writer({"type": "task_failed", "task_id": task_id, "error": result.error})
                 writer({"type": "task_todo_sync", "action": "failed", "description": description, "task_id": task_id})
                 logger.error(f"[trace={trace_id}] Task {task_id} failed: {result.error}")
                 cleanup_background_task(task_id)
-                return f"Task failed. Error: {result.error}"
+                # Raise so LangGraph marks the overall run as failed rather than
+                # letting the LLM silently recover from a hard subagent error.
+                raise RuntimeError(error_msg)
             elif result.status == SubagentStatus.TIMED_OUT:
+                error_msg = f"Subagent '{subagent_type}' timed out after {config.timeout_seconds}s: {result.error}"
                 writer({"type": "task_timed_out", "task_id": task_id, "error": result.error})
                 writer({"type": "task_todo_sync", "action": "failed", "description": description, "task_id": task_id})
                 logger.warning(f"[trace={trace_id}] Task {task_id} timed out: {result.error}")
                 cleanup_background_task(task_id)
-                return f"Task timed out. Error: {result.error}"
+                raise RuntimeError(error_msg)
 
             # Still running, wait before next poll
             await asyncio.sleep(5)

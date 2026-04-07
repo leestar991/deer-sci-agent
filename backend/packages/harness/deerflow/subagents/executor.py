@@ -464,8 +464,12 @@ class SubagentExecutor:
     def execute(self, task: str, result_holder: SubagentResult | None = None) -> SubagentResult:
         """Execute a task synchronously (wrapper around async execution).
 
-        This method runs the async execution in a new event loop, allowing
-        asynchronous tools (like MCP tools) to be used within the thread pool.
+        Creates a new, fully isolated event loop for each subagent execution.
+        Using asyncio.new_event_loop() + run_until_complete() + explicit cleanup
+        prevents "Event loop is closed" errors that arise when:
+          - The parent LangGraph HTTP connection times out after long runs (≥15 min)
+          - asyncio.run() in Python 3.12+ interacts with the parent thread's loop
+            during its cleanup phase, leaking closed-loop state into sub-threads
 
         Args:
             task: The task description for the subagent.
@@ -474,20 +478,14 @@ class SubagentExecutor:
         Returns:
             SubagentResult with the execution result.
         """
-        # Run the async execution in a new event loop
-        # This is necessary because:
-        # 1. We may have async-only tools (like MCP tools)
-        # 2. We're running inside a ThreadPoolExecutor which doesn't have an event loop
-        #
-        # Note: _aexecute() catches all exceptions internally, so this outer
-        # try-except only handles asyncio.run() failures (e.g., if called from
-        # an async context where an event loop already exists). Subagent execution
-        # errors are handled within _aexecute() and returned as FAILED status.
+        loop = asyncio.new_event_loop()
+        # Bind the new loop to this thread so any asyncio.get_event_loop() calls
+        # inside _aexecute (e.g., from LangChain httpx clients) use it correctly.
+        asyncio.set_event_loop(loop)
         try:
-            return asyncio.run(self._aexecute(task, result_holder))
+            return loop.run_until_complete(self._aexecute(task, result_holder))
         except Exception as e:
             logger.exception(f"[trace={self.trace_id}] Subagent {self.config.name} execution failed")
-            # Create a result with error if we don't have one
             if result_holder is not None:
                 result = result_holder
             else:
@@ -500,6 +498,23 @@ class SubagentExecutor:
             result.error = str(e)
             result.completed_at = datetime.now()
             return result
+        finally:
+            try:
+                # Cancel any lingering tasks before closing to avoid ResourceWarning.
+                # This can happen if _aexecute() raises before the agent finishes streaming.
+                pending = asyncio.all_tasks(loop)
+                if pending:
+                    for t in pending:
+                        t.cancel()
+                    loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+            except Exception:
+                pass  # best-effort; never let cleanup mask the real error
+            finally:
+                loop.close()
+                # Detach the closed loop from this thread so subsequent code in
+                # the same thread (e.g., next task from _execution_pool) does not
+                # accidentally receive a closed loop via asyncio.get_event_loop().
+                asyncio.set_event_loop(None)
 
     def execute_async(self, task: str, task_id: str | None = None) -> str:
         """Start a task execution in the background.

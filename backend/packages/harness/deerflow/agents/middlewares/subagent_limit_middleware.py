@@ -11,7 +11,8 @@ from deerflow.config.subagents_config import get_subagents_app_config
 
 logger = logging.getLogger(__name__)
 
-# Valid range for max_concurrent_subagents
+# Default and valid range for max_concurrent_subagents
+MAX_CONCURRENT_SUBAGENTS = 5  # matches SubagentsConfig.max_concurrent default
 MIN_SUBAGENT_LIMIT = 2
 MAX_SUBAGENT_LIMIT = 10
 

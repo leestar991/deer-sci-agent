@@ -430,8 +430,8 @@ class TestSyncExecutionPath:
         assert result.status == SubagentStatus.COMPLETED
         assert result.result == "Thread pool result"
 
-    def test_execute_handles_asyncio_run_failure(self, classes, base_config):
-        """Test handling when asyncio.run() itself fails."""
+    def test_execute_handles_loop_failure(self, classes, base_config):
+        """Test that exceptions during loop.run_until_complete are caught and returned as FAILED."""
         SubagentExecutor = classes["SubagentExecutor"]
         SubagentStatus = classes["SubagentStatus"]
 
@@ -442,13 +442,94 @@ class TestSyncExecutionPath:
         )
 
         with patch.object(executor, "_aexecute") as mock_aexecute:
-            mock_aexecute.side_effect = Exception("Asyncio run error")
+            mock_aexecute.side_effect = Exception("Loop run error")
 
             result = executor.execute("Task")
 
         assert result.status == SubagentStatus.FAILED
-        assert "Asyncio run error" in result.error
+        assert "Loop run error" in result.error
         assert result.completed_at is not None
+
+    def test_execute_clears_event_loop_after_success(self, classes, base_config, mock_agent, msg):
+        """execute() must set event loop to None after completion to prevent closed-loop reuse.
+
+        Python 3.12 raises RuntimeError from get_event_loop() when no loop is set
+        (rather than returning None). Catching RuntimeError is therefore equivalent to
+        the loop being cleared — both are acceptable outcomes.
+        """
+        import asyncio as _asyncio
+
+        SubagentExecutor = classes["SubagentExecutor"]
+
+        final_message = msg.ai("Done", "msg-ok")
+        final_state = {"messages": [msg.human("Task"), final_message]}
+        mock_agent.astream = lambda *args, **kwargs: async_iterator([final_state])
+
+        executor = SubagentExecutor(config=base_config, tools=[], thread_id="t1")
+        with patch.object(executor, "_create_agent", return_value=mock_agent):
+            executor.execute("Task")
+
+        # After execute() returns, the closed loop must not be the current loop.
+        # In Python 3.12, get_event_loop() raises RuntimeError when set to None — that
+        # is the expected "cleared" state. In older Python it returns None.
+        try:
+            current = _asyncio.get_event_loop_policy().get_event_loop()
+            # If a loop exists, it must not be closed
+            assert not current.is_closed()
+        except RuntimeError:
+            pass  # No current event loop = properly cleared, test passes
+
+    def test_execute_clears_event_loop_after_failure(self, classes, base_config):
+        """execute() must set event loop to None even when execution fails."""
+        import asyncio as _asyncio
+
+        SubagentExecutor = classes["SubagentExecutor"]
+
+        executor = SubagentExecutor(config=base_config, tools=[], thread_id="t2")
+        with patch.object(executor, "_aexecute") as mock_aexecute:
+            mock_aexecute.side_effect = RuntimeError("boom")
+            executor.execute("Task")
+
+        # After execute() returns (even on failure), the closed loop must not remain.
+        # In Python 3.12, get_event_loop() raises RuntimeError when set to None.
+        try:
+            current = _asyncio.get_event_loop_policy().get_event_loop()
+            assert not current.is_closed()
+        except RuntimeError:
+            pass  # No current event loop = properly cleared, test passes
+
+    def test_execute_parallel_loops_do_not_interfere(self, classes, base_config, msg):
+        """Parallel execute() calls in separate threads must use independent event loops."""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        SubagentExecutor = classes["SubagentExecutor"]
+        SubagentStatus = classes["SubagentStatus"]
+
+        loop_ids: list[int] = []
+
+        def run_and_capture_loop(task_num: int):
+            import asyncio as _asyncio
+
+            async def mock_astream(*args, **kwargs):
+                # Record which loop is active inside each subagent execution
+                loop_ids.append(id(_asyncio.get_event_loop()))
+                yield {"messages": [msg.human("T"), msg.ai(f"R{task_num}", f"m{task_num}")]}
+
+            m = MagicMock()
+            m.astream = mock_astream
+            executor = SubagentExecutor(config=base_config, tools=[], thread_id=f"th-{task_num}")
+            with patch.object(executor, "_create_agent", return_value=m):
+                return executor.execute(f"Task {task_num}")
+
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            futures = [pool.submit(run_and_capture_loop, i) for i in range(3)]
+            results = [f.result() for f in as_completed(futures)]
+
+        assert len(results) == 3
+        for r in results:
+            assert r.status == SubagentStatus.COMPLETED
+        # Each execution should have recorded a different event loop id
+        assert len(set(loop_ids)) == len(loop_ids), "Parallel executions shared the same event loop!"
 
     def test_execute_with_result_holder(self, classes, base_config, mock_agent, msg):
         """Test execute() updates provided result_holder in real-time."""
