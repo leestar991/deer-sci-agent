@@ -32,6 +32,13 @@ _DEFAULT_HARD_LIMIT = 5  # force-stop after 5 identical calls
 _DEFAULT_WINDOW_SIZE = 20  # track last N tool calls
 _DEFAULT_MAX_TRACKED_THREADS = 100  # LRU eviction limit
 
+# Management tools that are idempotent by design (e.g. refreshing task state).
+# When a message contains ONLY management tool calls, the loop thresholds are
+# multiplied by this factor so that legitimate state-refresh calls do not
+# trigger false-positive loop detection.
+_MANAGEMENT_TOOLS: frozenset[str] = frozenset({"write_todos", "present_files"})
+_MANAGEMENT_THRESHOLD_MULTIPLIER = 3  # effectively 9 warn / 15 hard for management-only
+
 
 def _hash_tool_calls(tool_calls: list[dict]) -> str:
     """Deterministic hash of a set of tool calls (name + args).
@@ -135,6 +142,14 @@ class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
         thread_id = self._get_thread_id(runtime)
         call_hash = _hash_tool_calls(tool_calls)
 
+        # Management-tool-only messages (e.g. write_todos with unchanged content)
+        # are idempotent by design — they should not trigger loop detection as
+        # quickly as substantive tool calls. Apply a multiplier to their thresholds.
+        is_management_only = all(tc.get("name") in _MANAGEMENT_TOOLS for tc in tool_calls)
+        multiplier = _MANAGEMENT_THRESHOLD_MULTIPLIER if is_management_only else 1
+        effective_warn = self.warn_threshold * multiplier
+        effective_hard = self.hard_limit * multiplier
+
         with self._lock:
             # Touch / create entry (move to end for LRU)
             if thread_id in self._history:
@@ -151,7 +166,7 @@ class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
             count = history.count(call_hash)
             tool_names = [tc.get("name", "?") for tc in tool_calls]
 
-            if count >= self.hard_limit:
+            if count >= effective_hard:
                 logger.error(
                     "Loop hard limit reached — forcing stop",
                     extra={
@@ -163,7 +178,7 @@ class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
                 )
                 return _HARD_STOP_MSG, True
 
-            if count >= self.warn_threshold:
+            if count >= effective_warn:
                 warned = self._warned[thread_id]
                 if call_hash not in warned:
                     warned.add(call_hash)
@@ -204,6 +219,20 @@ class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
             # the conversation; injecting one mid-conversation crashes
             # langchain_anthropic's _format_messages(). HumanMessage works
             # with all providers. See #1299.
+            #
+            # IMPORTANT: also strip tool_calls from the AIMessage when injecting
+            # a warning. Without this, the ToolNode would run AFTER the injected
+            # HumanMessage, producing an invalid API sequence:
+            #   AIMessage[tool_use] → HumanMessage → ToolMessage[tool_result]
+            # Anthropic (and other providers) require tool_result to come
+            # IMMEDIATELY after tool_use with no intervening messages.
+            # Stripping tool_calls prevents ToolNode from executing, ensuring
+            # the run ends cleanly and the next turn can re-plan without looping.
+            messages = state.get("messages", [])
+            last_msg = messages[-1] if messages else None
+            if last_msg is not None and getattr(last_msg, "type", None) == "ai" and getattr(last_msg, "tool_calls", None):
+                stripped_msg = last_msg.model_copy(update={"tool_calls": []})
+                return {"messages": [stripped_msg, HumanMessage(content=warning)]}
             return {"messages": [HumanMessage(content=warning)]}
 
         return None

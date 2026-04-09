@@ -368,18 +368,32 @@ flowchart TD
 - 输出格式（PPTX）
 
 ### Step 2: 生成图表文件
-先用 Python 生成所有需要的科研图表，保存到 `/mnt/user-data/outputs/charts/`：
+先用 Python 生成所有需要的科研图表，保存到 charts 目录。
+注意：bash 命令中的 /mnt 路径会被自动转换，但在 Python 脚本中必须用环境变量解析：
 ```bash
 mkdir -p /mnt/user-data/outputs/charts
 python /mnt/user-data/workspace/generate_charts.py
 ```
+生成 generate_charts.py 时，脚本顶部必须加路径解析：
+```python
+import os
+OUTPUTS_DIR = os.environ.get("MNT_USER_DATA_OUTPUTS") or "/mnt/user-data/outputs"
+CHARTS_DIR = os.path.join(OUTPUTS_DIR, "charts")
+os.makedirs(CHARTS_DIR, exist_ok=True)
+```
 
 ### Step 3: 用 python-pptx 构建 PPT
 ```python
+import os
 from pptx import Presentation
 from pptx.util import Inches, Pt, Emu
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
+
+# Always resolve physical paths from sandbox env vars
+OUTPUTS_DIR = os.environ.get("MNT_USER_DATA_OUTPUTS") or "/mnt/user-data/outputs"
+WORKSPACE_DIR = os.environ.get("MNT_USER_DATA_WORKSPACE") or "/mnt/user-data/workspace"
+os.makedirs(OUTPUTS_DIR, exist_ok=True)
 
 prs = Presentation()
 prs.slide_width = Inches(13.33)   # 16:9 宽屏
@@ -411,8 +425,8 @@ def add_chart_image(slide, img_path, left, top, width, height):
     slide.shapes.add_picture(img_path, Inches(left), Inches(top),
                               Inches(width), Inches(height))
 
-# 保存
-prs.save("/mnt/user-data/outputs/presentation.pptx")
+# 保存 (use OUTPUTS_DIR, not hardcoded virtual path)
+prs.save(os.path.join(OUTPUTS_DIR, "presentation.pptx"))
 ```
 
 ### Step 4: 校验和输出
@@ -433,15 +447,48 @@ prs.save("/mnt/user-data/outputs/presentation.pptx")
 </output_standards>
 
 <working_directory>
-Workspace: /mnt/user-data/workspace
-Outputs: /mnt/user-data/outputs
-Charts: /mnt/user-data/outputs/charts
+Virtual paths (always safe to use in bash commands):
+  Workspace: /mnt/user-data/workspace
+  Outputs:   /mnt/user-data/outputs
+  Charts:    /mnt/user-data/outputs/charts
+
+IMPORTANT — Python scripts cannot use /mnt/user-data paths directly on macOS local sandbox.
+Always resolve paths at the top of every Python script using this pattern:
+
+```python
+import os
+
+# Resolve physical paths from sandbox env vars (set automatically by the sandbox)
+WORKSPACE_DIR = os.environ.get("MNT_USER_DATA_WORKSPACE") or "/mnt/user-data/workspace"
+OUTPUTS_DIR   = os.environ.get("MNT_USER_DATA_OUTPUTS")   or "/mnt/user-data/outputs"
+UPLOADS_DIR   = os.environ.get("MNT_USER_DATA_UPLOADS")   or "/mnt/user-data/uploads"
+CHARTS_DIR    = os.path.join(OUTPUTS_DIR, "charts")
+
+os.makedirs(OUTPUTS_DIR, exist_ok=True)
+os.makedirs(CHARTS_DIR,  exist_ok=True)
+```
+
+Use OUTPUTS_DIR, WORKSPACE_DIR, etc. throughout the script — never hardcode /mnt/... paths.
 </working_directory>
 
 <dependencies>
 Required Python packages: python-pptx, matplotlib, seaborn, scipy, numpy, pandas
 Optional: lifelines (KM curves), graphviz (diagrams), plotly (interactive)
-Install if missing: pip install python-pptx matplotlib seaborn scipy numpy pandas lifelines
+
+IMPORTANT — package installation:
+Packages are pre-installed in the sandbox. Do NOT add a `pip install` step inside Python scripts
+(the venv may have no `pip` executable, causing the script to fail before any work is done).
+
+If you must install a missing package, do it in a separate bash command BEFORE running the script:
+```bash
+uv pip install python-pptx matplotlib seaborn scipy numpy pandas lifelines 2>/dev/null || true
+```
+
+NEVER do this inside a Python script:
+```python
+# BAD — will crash if pip is not available
+subprocess.run([sys.executable, "-m", "pip", "install", "..."], check=True)
+```
 </dependencies>
 """,
     tools=["read_file", "write_file", "bash", "str_replace"],

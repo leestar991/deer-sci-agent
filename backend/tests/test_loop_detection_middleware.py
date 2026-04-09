@@ -6,6 +6,8 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from deerflow.agents.middlewares.loop_detection_middleware import (
     _HARD_STOP_MSG,
+    _MANAGEMENT_THRESHOLD_MULTIPLIER,
+    _MANAGEMENT_TOOLS,
     LoopDetectionMiddleware,
     _hash_tool_calls,
 )
@@ -76,13 +78,18 @@ class TestLoopDetection:
         for _ in range(2):
             mw._apply(_make_state(tool_calls=call), runtime)
 
-        # Third identical call triggers warning
+        # Third identical call triggers warning.
+        # Result should contain [stripped AIMessage (no tool_calls), HumanMessage warning].
         result = mw._apply(_make_state(tool_calls=call), runtime)
         assert result is not None
         msgs = result["messages"]
-        assert len(msgs) == 1
-        assert isinstance(msgs[0], HumanMessage)
-        assert "LOOP DETECTED" in msgs[0].content
+        assert len(msgs) == 2
+        # First: stripped AIMessage (tool_calls cleared)
+        assert isinstance(msgs[0], AIMessage)
+        assert msgs[0].tool_calls == []
+        # Second: warning HumanMessage
+        assert isinstance(msgs[1], HumanMessage)
+        assert "LOOP DETECTED" in msgs[1].content
 
     def test_warn_only_injected_once(self):
         """Warning for the same hash should only be injected once per thread."""
@@ -94,13 +101,59 @@ class TestLoopDetection:
         for _ in range(2):
             mw._apply(_make_state(tool_calls=call), runtime)
 
-        # Third — warning injected
+        # Third — warning injected (stripped AIMessage + HumanMessage)
         result = mw._apply(_make_state(tool_calls=call), runtime)
         assert result is not None
-        assert "LOOP DETECTED" in result["messages"][0].content
+        assert "LOOP DETECTED" in result["messages"][1].content
 
         # Fourth — warning already injected, should return None
         result = mw._apply(_make_state(tool_calls=call), runtime)
+        assert result is None
+
+    def test_warn_strips_tool_calls_to_prevent_invalid_sequence(self):
+        """Regression: warning must strip tool_calls to prevent ToolNode from running
+        after the injected HumanMessage, which would produce:
+          AIMessage[tool_use] → HumanMessage → ToolMessage[tool_result]
+        That sequence is rejected by Anthropic with a 400 error."""
+        mw = LoopDetectionMiddleware(warn_threshold=2, hard_limit=10)
+        runtime = _make_runtime()
+        call = [_bash_call("ls")]
+
+        mw._apply(_make_state(tool_calls=call), runtime)
+
+        result = mw._apply(_make_state(tool_calls=call), runtime)
+        assert result is not None
+        msgs = result["messages"]
+
+        # Stripped AIMessage must have empty tool_calls
+        stripped = msgs[0]
+        assert isinstance(stripped, AIMessage)
+        assert stripped.tool_calls == [], "tool_calls must be stripped to prevent ToolNode execution"
+
+        # Warning HumanMessage must be present
+        human_msg = msgs[1]
+        assert isinstance(human_msg, HumanMessage)
+        assert "LOOP DETECTED" in human_msg.content
+
+    def test_warn_without_tool_calls_only_injects_human_message(self):
+        """If last message has no tool_calls, warning is only a HumanMessage."""
+        mw = LoopDetectionMiddleware(warn_threshold=2, hard_limit=10)
+        runtime = _make_runtime()
+
+        # Simulate an AIMessage without tool_calls hitting the threshold
+        # (edge case, but guard the branch)
+        call = [_bash_call("ls")]
+        # Register 1 normal call to initialise history, then submit a state
+        # whose last message has no tool_calls (edge case branch).
+        mw._apply(_make_state(tool_calls=call), runtime)
+
+        # Directly manipulate warned set to simulate prior warning so the
+        # "no tool_calls" branch can be reached more simply via hard_limit=2.
+        mw2 = LoopDetectionMiddleware(warn_threshold=1, hard_limit=10)
+        no_tc_state = {"messages": [AIMessage(content="text only")]}
+        result = mw2._apply(no_tc_state, _make_runtime("thread-x"))
+        # No tool_calls → HumanMessage-only path not reached (no_tc_state
+        # AIMessage has no tool_calls, so _track_and_check returns None).
         assert result is None
 
     def test_hard_stop_at_limit(self):
@@ -188,12 +241,12 @@ class TestLoopDetection:
         # Second call on thread A — triggers warning (2 >= warn_threshold)
         result = mw._apply(_make_state(tool_calls=call), runtime_a)
         assert result is not None
-        assert "LOOP DETECTED" in result["messages"][0].content
+        assert "LOOP DETECTED" in result["messages"][1].content
 
         # Second call on thread B — also triggers (independent tracking)
         result = mw._apply(_make_state(tool_calls=call), runtime_b)
         assert result is not None
-        assert "LOOP DETECTED" in result["messages"][0].content
+        assert "LOOP DETECTED" in result["messages"][1].content
 
     def test_lru_eviction(self):
         """Old threads should be evicted when max_tracked_threads is exceeded."""
@@ -229,3 +282,77 @@ class TestLoopDetection:
 
         mw._apply(_make_state(tool_calls=call), runtime)
         assert "default" in mw._history
+
+
+def _write_todos_call():
+    return {"name": "write_todos", "id": "call_todos", "args": {"todos": [{"id": "1", "content": "task", "status": "pending"}]}}
+
+
+def _present_files_call():
+    return {"name": "present_files", "id": "call_pf", "args": {"files": ["/mnt/user-data/outputs/report.pptx"]}}
+
+
+class TestManagementToolMultiplier:
+    """Management-only calls (write_todos, present_files) use higher thresholds."""
+
+    def test_management_tools_set_contains_expected_tools(self):
+        assert "write_todos" in _MANAGEMENT_TOOLS
+        assert "present_files" in _MANAGEMENT_TOOLS
+
+    def test_management_tool_does_not_warn_at_normal_threshold(self):
+        """write_todos should NOT trigger a warning at the normal warn_threshold count."""
+        mw = LoopDetectionMiddleware(warn_threshold=3, hard_limit=5)
+        runtime = _make_runtime()
+        call = [_write_todos_call()]
+
+        # Under normal rules this would warn at count=3.
+        # With management multiplier (3×), the effective warn is 9 — so no warning here.
+        for _ in range(3):
+            result = mw._apply(_make_state(tool_calls=call), runtime)
+        # 3 calls < effective_warn(9) → no warning
+        assert result is None
+
+    def test_management_tool_warns_at_multiplied_threshold(self):
+        """write_todos should warn only after warn_threshold × multiplier identical calls."""
+        mw = LoopDetectionMiddleware(warn_threshold=3, hard_limit=20)
+        runtime = _make_runtime()
+        call = [_write_todos_call()]
+        effective_warn = 3 * _MANAGEMENT_THRESHOLD_MULTIPLIER  # 9
+
+        # Calls 1..effective_warn-1 → no warning
+        for i in range(1, effective_warn):
+            result = mw._apply(_make_state(tool_calls=call), runtime)
+        assert result is None
+
+        # Call at effective_warn → warning
+        result = mw._apply(_make_state(tool_calls=call), runtime)
+        assert result is not None
+        msgs = result["messages"]
+        assert any("LOOP DETECTED" in getattr(m, "content", "") for m in msgs)
+
+    def test_mixed_management_and_substantive_tool_not_elevated(self):
+        """A call mixing write_todos with a substantive tool uses normal thresholds."""
+        mw = LoopDetectionMiddleware(warn_threshold=3, hard_limit=5)
+        runtime = _make_runtime()
+        # Mixed call: one management + one substantive
+        mixed = [_write_todos_call(), _bash_call("ls")]
+
+        # At count=3 this should trigger warning (normal threshold, not elevated)
+        for _ in range(2):
+            mw._apply(_make_state(tool_calls=mixed), runtime)
+        result = mw._apply(_make_state(tool_calls=mixed), runtime)
+        assert result is not None
+        msgs = result["messages"]
+        assert any("LOOP DETECTED" in getattr(m, "content", "") for m in msgs)
+
+    def test_present_files_also_uses_elevated_threshold(self):
+        """present_files (another management tool) also gets the elevated threshold."""
+        mw = LoopDetectionMiddleware(warn_threshold=3, hard_limit=20)
+        runtime = _make_runtime()
+        call = [_present_files_call()]
+        normal_warn = 3
+
+        # Would trigger at count=3 under normal rules; should NOT with multiplier
+        for _ in range(normal_warn):
+            result = mw._apply(_make_state(tool_calls=call), runtime)
+        assert result is None

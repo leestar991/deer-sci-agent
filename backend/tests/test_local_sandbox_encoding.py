@@ -92,22 +92,19 @@ def test_execute_command_uses_powershell_command_mode_on_windows(monkeypatch):
     output = LocalSandbox("t").execute_command("Write-Output hello")
 
     assert output == "ok"
-    assert calls == [
-        (
-            [
-                r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
-                "-NoProfile",
-                "-Command",
-                "Write-Output hello",
-            ],
-            {
-                "shell": False,
-                "capture_output": True,
-                "text": True,
-                "timeout": 600,
-            },
-        )
+    assert len(calls) == 1
+    args, kwargs = calls[0]
+    assert args == [
+        r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
+        "-NoProfile",
+        "-Command",
+        "Write-Output hello",
     ]
+    assert kwargs["shell"] is False
+    assert kwargs["capture_output"] is True
+    assert kwargs["text"] is True
+    assert kwargs["timeout"] == 600
+    assert "env" in kwargs  # path env vars are always injected
 
 
 def test_execute_command_uses_posix_shell_command_mode_on_windows(monkeypatch):
@@ -124,17 +121,14 @@ def test_execute_command_uses_posix_shell_command_mode_on_windows(monkeypatch):
     output = LocalSandbox("t").execute_command("echo hello")
 
     assert output == "ok"
-    assert calls == [
-        (
-            [r"C:\Program Files\Git\bin\sh.exe", "-c", "echo hello"],
-            {
-                "shell": False,
-                "capture_output": True,
-                "text": True,
-                "timeout": 600,
-            },
-        )
-    ]
+    assert len(calls) == 1
+    args, kwargs = calls[0]
+    assert args == [r"C:\Program Files\Git\bin\sh.exe", "-c", "echo hello"]
+    assert kwargs["shell"] is False
+    assert kwargs["capture_output"] is True
+    assert kwargs["text"] is True
+    assert kwargs["timeout"] == 600
+    assert "env" in kwargs
 
 
 def test_execute_command_uses_cmd_command_mode_on_windows(monkeypatch):
@@ -151,14 +145,11 @@ def test_execute_command_uses_cmd_command_mode_on_windows(monkeypatch):
     output = LocalSandbox("t").execute_command("echo hello")
 
     assert output == "ok"
-    assert calls == [
-        (
-            [r"C:\Windows\System32\cmd.exe", "/c", "echo hello"],
-            {
-                "shell": False,
-                "capture_output": True,
-                "text": True,
-                "timeout": 600,
-            },
-        )
-    ]
+    assert len(calls) == 1
+    args, kwargs = calls[0]
+    assert args == [r"C:\Windows\System32\cmd.exe", "/c", "echo hello"]
+    assert kwargs["shell"] is False
+    assert kwargs["capture_output"] is True
+    assert kwargs["text"] is True
+    assert kwargs["timeout"] == 600
+    assert "env" in kwargs

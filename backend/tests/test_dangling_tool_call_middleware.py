@@ -111,6 +111,54 @@ class TestBuildPatchedMessagesPatching:
         synthetic = [m for m in patched if isinstance(m, ToolMessage)]
         assert len(synthetic) == 2
 
+    def test_displaced_tool_messages_loop_detection_scenario(self):
+        """Regression: LoopDetectionMiddleware injects HumanMessage between
+        AIMessage[tool_calls] and ToolMessages, causing Anthropic 400 error.
+        Middleware must move ToolMessages to immediately after the AIMessage."""
+        mw = DanglingToolCallMiddleware()
+        msgs = [
+            _ai_with_tool_calls([_tc("task", "call_1"), _tc("task", "call_2")]),
+            HumanMessage(content="[LOOP DETECTED] stop repeating"),
+            _tool_msg("call_1", "task"),
+            _tool_msg("call_2", "task"),
+        ]
+        patched = mw._build_patched_messages(msgs)
+        assert patched is not None
+
+        # ToolMessages (synthetic replacements) must be right after the AIMessage
+        assert isinstance(patched[0], AIMessage)
+        assert isinstance(patched[1], ToolMessage)
+        assert isinstance(patched[2], ToolMessage)
+        # HumanMessage should come after ToolMessages
+        assert isinstance(patched[3], HumanMessage)
+
+        tool_ids = {m.tool_call_id for m in patched if isinstance(m, ToolMessage)}
+        assert tool_ids == {"call_1", "call_2"}
+
+        # No displaced originals should remain at old positions
+        # (total length: 1 AI + 2 synthetic TM + 1 HM = 4, displaced dropped)
+        assert len(patched) == 4
+
+    def test_displaced_partial_tool_messages(self):
+        """Only some tool_calls have displaced ToolMessages; patch only missing ones."""
+        mw = DanglingToolCallMiddleware()
+        msgs = [
+            _ai_with_tool_calls([_tc("task", "call_1"), _tc("task", "call_2")]),
+            HumanMessage(content="[LOOP DETECTED]"),
+            _tool_msg("call_1", "task"),  # displaced
+            # call_2 has no ToolMessage at all
+        ]
+        patched = mw._build_patched_messages(msgs)
+        assert patched is not None
+
+        # AI + TM[call_1 synthetic] + TM[call_2 synthetic] + HumanMessage
+        assert len(patched) == 4
+        assert isinstance(patched[1], ToolMessage)
+        assert isinstance(patched[2], ToolMessage)
+        assert isinstance(patched[3], HumanMessage)
+        tool_ids = {m.tool_call_id for m in patched if isinstance(m, ToolMessage)}
+        assert tool_ids == {"call_1", "call_2"}
+
     def test_synthetic_message_content(self):
         mw = DanglingToolCallMiddleware()
         msgs = [_ai_with_tool_calls([_tc("bash", "call_1")])]

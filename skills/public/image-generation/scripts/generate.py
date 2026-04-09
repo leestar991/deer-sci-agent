@@ -64,9 +64,14 @@ def generate_image(
 
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        return "GEMINI_API_KEY is not set"
+        return (
+            "ERROR: GEMINI_API_KEY environment variable is not configured. "
+            "Image generation requires a valid Gemini API key set in the server environment. "
+            "This is a server-side configuration issue — do NOT attempt workarounds or alternative approaches. "
+            "Inform the user that the image-generation skill is unavailable until GEMINI_API_KEY is configured by an administrator."
+        )
     response = requests.post(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent",
+        "https://aiplatform.googleapis.com/v1/projects/fosunpharma-gemini/locations/global/publishers/google/models/gemini-3-pro-image-preview:generateContent",
         headers={
             "x-goog-api-key": api_key,
             "Content-Type": "application/json",
