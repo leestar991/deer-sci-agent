@@ -164,52 +164,52 @@ Skip simple one-off tasks.
 """
 
 
-def _build_available_subagents_text(allowed_subagents: list[str]) -> str:
-    """Build the available subagents bullet list from a curated allowed list.
+def _build_available_subagents_description(available_names: list[str], bash_available: bool) -> str:
+    """Dynamically build subagent type descriptions from registry.
 
-    Args:
-        allowed_subagents: Ordered list of subagent names from agent config.
-
-    Returns:
-        Formatted bullet list string.
+    Mirrors Codex's pattern where agent_type_description is dynamically generated
+    from all registered roles, so the LLM knows about every available type.
     """
-    from deerflow.subagents import get_subagent_config
+    # Built-in descriptions (kept for backward compatibility with existing prompt quality)
+    builtin_descriptions = {
+        "general-purpose": "For ANY non-trivial task - web research, code exploration, file operations, analysis, etc.",
+        "bash": (
+            "For command execution (git, build, test, deploy operations)" if bash_available else "Not available in the current sandbox configuration. Use direct file/web tools or switch to AioSandboxProvider for isolated shell access."
+        ),
+    }
+
+    # Lazy import moved outside loop to avoid repeated import overhead
+    from deerflow.subagents.registry import get_subagent_config
 
     lines = []
-    for name in allowed_subagents:
-        cfg = get_subagent_config(name)
-        if cfg is None:
-            continue
-        # Use first non-empty line of description as the summary
-        summary = next((ln.strip() for ln in cfg.description.splitlines() if ln.strip()), name)
-        lines.append(f"- **{name}**: {summary}")
+    for name in available_names:
+        if name in builtin_descriptions:
+            lines.append(f"- **{name}**: {builtin_descriptions[name]}")
+        else:
+            config = get_subagent_config(name)
+            if config is not None:
+                desc = config.description.split("\n")[0].strip()  # First line only for brevity
+                lines.append(f"- **{name}**: {desc}")
+
     return "\n".join(lines)
 
 
-def _build_subagent_section(max_concurrent: int, allowed_subagents: list[str] | None = None) -> str:
+def _build_subagent_section(max_concurrent: int) -> str:
     """Build the subagent system prompt section with dynamic concurrency limit.
 
     Args:
         max_concurrent: Maximum number of concurrent subagent calls allowed per response.
-        allowed_subagents: If provided, list only these subagents instead of the default
-            general-purpose / bash pair. Populated from the agent's config.yaml.
 
     Returns:
         Formatted subagent section string.
     """
     n = max_concurrent
-    bash_available = "bash" in get_available_subagent_names()
-    if allowed_subagents is not None:
-        available_subagents = _build_available_subagents_text(allowed_subagents)
-    elif bash_available:
-        available_subagents = (
-            "- **general-purpose**: For ANY non-trivial task - web research, code exploration, file operations, analysis, etc.\n- **bash**: For command execution (git, build, test, deploy operations)"
-        )
-    else:
-        available_subagents = (
-            "- **general-purpose**: For ANY non-trivial task - web research, code exploration, file operations, analysis, etc.\n"
-            "- **bash**: Not available in the current sandbox configuration. Use direct file/web tools or switch to AioSandboxProvider for isolated shell access."
-        )
+    available_names = get_available_subagent_names()
+    bash_available = "bash" in available_names
+
+    # Dynamically build subagent type descriptions from registry (aligned with Codex's
+    # agent_type_description pattern where all registered roles are listed in the tool spec).
+    available_subagents = _build_available_subagents_description(available_names, bash_available)
     direct_tool_examples = "bash, ls, read_file, web_search, etc." if bash_available else "ls, read_file, web_search, etc."
     direct_execution_example = (
         '# User asks: "Run the tests"\n# Thinking: Cannot decompose into parallel sub-tasks\n# → Execute directly\n\nbash("npm test")  # Direct execution, not task()'
@@ -703,13 +703,13 @@ def _build_custom_mounts_section() -> str:
     return f"\n**Custom Mounted Directories:**\n{mounts_list}\n- If the user needs files outside `/mnt/user-data`, use these absolute container paths directly when they match the requested directory"
 
 
-def apply_prompt_template(subagent_enabled: bool = False, max_concurrent_subagents: int = 3, *, agent_name: str | None = None, available_skills: set[str] | None = None, allowed_subagents: list[str] | None = None) -> str:
+def apply_prompt_template(subagent_enabled: bool = False, max_concurrent_subagents: int = 3, *, agent_name: str | None = None, available_skills: set[str] | None = None) -> str:
     # Get memory context
     memory_context = _get_memory_context(agent_name)
 
     # Include subagent section only if enabled (from runtime parameter)
     n = max_concurrent_subagents
-    subagent_section = _build_subagent_section(n, allowed_subagents=allowed_subagents) if subagent_enabled else ""
+    subagent_section = _build_subagent_section(n) if subagent_enabled else ""
 
     # Add subagent reminder to critical_reminders if enabled
     subagent_reminder = (
