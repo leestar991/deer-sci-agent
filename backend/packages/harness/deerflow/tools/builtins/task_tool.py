@@ -239,7 +239,18 @@ async def task_tool(
                 writer({"type": "task_timed_out", "task_id": task_id, "error": result.error})
                 logger.warning(f"[trace={trace_id}] Task {task_id} timed out: {result.error}")
                 cleanup_background_task(task_id)
-                return f"Task timed out. Error: {result.error}"
+                partial = ""
+                if result.ai_messages:
+                    last_msg = result.ai_messages[-1]
+                    content = last_msg.get("content", "")
+                    if isinstance(content, str) and content.strip():
+                        partial = f"\n\nPartial result (work completed before timeout):\n{content[:4000]}"
+                    elif isinstance(content, list):
+                        texts = [b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text"]
+                        text = "\n".join(t for t in texts if t.strip())
+                        if text:
+                            partial = f"\n\nPartial result (work completed before timeout):\n{text[:4000]}"
+                return f"Task timed out after {config.timeout_seconds}s. Error: {result.error}{partial}"
 
             # Still running, wait before next poll
             await asyncio.sleep(5)

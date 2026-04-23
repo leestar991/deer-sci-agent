@@ -363,9 +363,83 @@ def test_task_tool_returns_timed_out_message(monkeypatch):
         tool_call_id="tc-timeout",
     )
 
-    assert output == "Task timed out. Error: timeout"
+    assert "Task timed out" in output
     assert events[-1]["type"] == "task_timed_out"
     assert events[-1]["error"] == "timeout"
+
+
+def test_task_tool_returns_partial_result_on_timeout(monkeypatch):
+    """When timed out and ai_messages is non-empty, partial result is included."""
+    config = _make_subagent_config()
+    events = []
+    partial_content = "Partial analysis: VISUAL I trial uses time-to-failure endpoint."
+
+    monkeypatch.setattr(task_tool_module, "SubagentStatus", FakeSubagentStatus)
+    monkeypatch.setattr(
+        task_tool_module,
+        "SubagentExecutor",
+        type("DummyExecutor", (), {"__init__": lambda self, **kwargs: None, "execute_async": lambda self, prompt, task_id=None: task_id}),
+    )
+    monkeypatch.setattr(task_tool_module, "get_subagent_config", lambda _: config)
+    monkeypatch.setattr(task_tool_module, "get_skills_prompt_section", lambda: "")
+    monkeypatch.setattr(
+        task_tool_module,
+        "get_background_task_result",
+        lambda _: _make_result(
+            FakeSubagentStatus.TIMED_OUT,
+            error="timeout",
+            ai_messages=[{"content": partial_content, "id": "msg-1"}],
+        ),
+    )
+    monkeypatch.setattr(task_tool_module, "get_stream_writer", lambda: events.append)
+    monkeypatch.setattr(task_tool_module.asyncio, "sleep", _no_sleep)
+    monkeypatch.setattr("deerflow.tools.get_available_tools", lambda **kwargs: [])
+
+    output = _run_task_tool(
+        runtime=_make_runtime(),
+        description="执行任务",
+        prompt="do timeout with partial",
+        subagent_type="general-purpose",
+        tool_call_id="tc-timeout-partial",
+    )
+
+    assert "Task timed out" in output
+    assert "Partial result" in output
+    assert partial_content in output
+
+
+def test_task_tool_no_partial_result_when_no_messages(monkeypatch):
+    """When timed out and ai_messages is empty, no partial result section is included."""
+    config = _make_subagent_config()
+    events = []
+
+    monkeypatch.setattr(task_tool_module, "SubagentStatus", FakeSubagentStatus)
+    monkeypatch.setattr(
+        task_tool_module,
+        "SubagentExecutor",
+        type("DummyExecutor", (), {"__init__": lambda self, **kwargs: None, "execute_async": lambda self, prompt, task_id=None: task_id}),
+    )
+    monkeypatch.setattr(task_tool_module, "get_subagent_config", lambda _: config)
+    monkeypatch.setattr(task_tool_module, "get_skills_prompt_section", lambda: "")
+    monkeypatch.setattr(
+        task_tool_module,
+        "get_background_task_result",
+        lambda _: _make_result(FakeSubagentStatus.TIMED_OUT, error="timeout", ai_messages=[]),
+    )
+    monkeypatch.setattr(task_tool_module, "get_stream_writer", lambda: events.append)
+    monkeypatch.setattr(task_tool_module.asyncio, "sleep", _no_sleep)
+    monkeypatch.setattr("deerflow.tools.get_available_tools", lambda **kwargs: [])
+
+    output = _run_task_tool(
+        runtime=_make_runtime(),
+        description="执行任务",
+        prompt="do timeout no messages",
+        subagent_type="general-purpose",
+        tool_call_id="tc-timeout-no-msgs",
+    )
+
+    assert "Task timed out" in output
+    assert "Partial result" not in output
 
 
 def test_task_tool_polling_safety_timeout(monkeypatch):
@@ -445,12 +519,13 @@ def test_cleanup_called_on_completed(monkeypatch):
 
 
 def test_cleanup_called_on_failed(monkeypatch):
-    """Verify cleanup_background_task is called when task fails."""
+    """Verify cleanup_background_task is called when task fails (no retry)."""
     config = _make_subagent_config()
     events = []
     cleanup_calls = []
 
     monkeypatch.setattr(task_tool_module, "SubagentStatus", FakeSubagentStatus)
+    monkeypatch.setattr(task_tool_module, "SUBAGENT_MAX_RETRIES", 0)
     monkeypatch.setattr(
         task_tool_module,
         "SubagentExecutor",
@@ -520,7 +595,8 @@ def test_cleanup_called_on_timed_out(monkeypatch):
         tool_call_id="tc-cleanup-timedout",
     )
 
-    assert output == "Task timed out. Error: timeout"
+    assert "Task timed out" in output
+    assert "timeout" in output
     assert cleanup_calls == ["tc-cleanup-timedout"]
 
 
