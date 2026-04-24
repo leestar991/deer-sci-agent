@@ -1,7 +1,7 @@
 import * as PIXI from 'pixi.js';
-import SpriteLoader, { CharFrames } from './SpriteLoader';
+import SpriteLoader from './SpriteLoader';
 import type { Agent, AgentData, AgentEvent } from '../types';
-import { BG_COLOR, NPC_SCALE, FH } from '../config/constants';
+import { BG_COLOR, NPC_SCALE } from '../config/constants';
 
 interface NPCSprite {
   id: string;
@@ -12,6 +12,7 @@ interface NPCSprite {
   charName: string;
   currentAnim: 'idle' | 'run' | 'phone';
   speed: number;
+  isPausedByHover?: boolean;
 }
 
 export default class GameEngine {
@@ -33,6 +34,7 @@ export default class GameEngine {
   private _resizeObs: ResizeObserver | null = null;
   private _agentsById: Map<string, Agent> = new Map();
   private _eventsByAgent: Map<string, AgentEvent[]> = new Map();
+  private _hoveredNpcId: string | null = null;
 
   constructor() {
     this.spriteLoader = new SpriteLoader();
@@ -114,6 +116,7 @@ export default class GameEngine {
       }
 
       if (hoveredNpc) {
+        this._setHoveredNpc(hoveredNpc);
         const agentData: AgentData = {
           agent: hoveredNpc.agent,
           charName: hoveredNpc.charName,
@@ -124,10 +127,19 @@ export default class GameEngine {
           (this.app.view as HTMLCanvasElement).style.cursor = 'pointer';
         }
       } else {
+        this._setHoveredNpc(null);
         this.onNpcLeave?.();
         if (this.app?.view) {
           (this.app.view as HTMLCanvasElement).style.cursor = 'default';
         }
+      }
+    });
+
+    this.npcLayer.on('pointerleave', () => {
+      this._setHoveredNpc(null);
+      this.onNpcLeave?.();
+      if (this.app?.view) {
+        (this.app.view as HTMLCanvasElement).style.cursor = 'default';
       }
     });
 
@@ -174,6 +186,7 @@ export default class GameEngine {
     this.npcs.forEach(npc => {
       this.npcLayer!.removeChild(npc.container);
     });
+    this._hoveredNpcId = null;
     this.npcs = [];
     this._agentsById.clear();
     this._eventsByAgent.clear();
@@ -251,6 +264,7 @@ export default class GameEngine {
       charName,
       currentAnim: agent.status === 'working' ? 'phone' : 'idle',
       speed: 1.5,
+      isPausedByHover: false,
     };
 
     this.npcs.push(npcSprite);
@@ -273,6 +287,9 @@ export default class GameEngine {
       }
       return true;
     });
+    if (this._hoveredNpcId && !this.npcs.some(npc => npc.id === this._hoveredNpcId)) {
+      this._hoveredNpcId = null;
+    }
 
     agents.forEach(agent => {
       const existing = this.npcs.find(n => n.id === agent.id);
@@ -318,12 +335,16 @@ export default class GameEngine {
       npc.sprite.animationSpeed = animSpeed;
       npc.sprite.play();
     }
+    if (npc.isPausedByHover) {
+      npc.sprite.stop();
+    }
   }
 
   deleteAgentById(agentId: string): void {
     const index = this.npcs.findIndex(n => n.id === agentId);
     if (index >= 0) {
       const npc = this.npcs[index];
+      if (!npc) return;
       this.npcLayer!.removeChild(npc.container);
       this.npcs.splice(index, 1);
       this._agentsById.delete(agentId);
@@ -350,5 +371,32 @@ export default class GameEngine {
     this.world = null;
     this.npcLayer = null;
     this._containerEl = null;
+  }
+
+  private _setHoveredNpc(hoveredNpc: NPCSprite | null): void {
+    const hoveredId = hoveredNpc?.id ?? null;
+    if (hoveredId === this._hoveredNpcId) return;
+
+    if (this._hoveredNpcId) {
+      const prevNpc = this.npcs.find(npc => npc.id === this._hoveredNpcId);
+      if (prevNpc) {
+        this._setNpcAnimationPaused(prevNpc, false);
+      }
+    }
+
+    if (hoveredNpc) {
+      this._setNpcAnimationPaused(hoveredNpc, true);
+    }
+
+    this._hoveredNpcId = hoveredId;
+  }
+
+  private _setNpcAnimationPaused(npc: NPCSprite, paused: boolean): void {
+    npc.isPausedByHover = paused;
+    if (paused) {
+      npc.sprite.stop();
+    } else {
+      npc.sprite.play();
+    }
   }
 }

@@ -21,6 +21,7 @@ interface NPCSprite {
   // For exclamation mark
   exclamationMark?: PIXI.Sprite | null;
   showExclamation?: boolean;
+  isPausedByHover?: boolean;
 }
 
 export default class GameEngine {
@@ -46,6 +47,7 @@ export default class GameEngine {
   private _agentsById: Map<string, Agent> = new Map();
   private _eventsByAgent: Map<string, AgentEvent[]> = new Map();
   private _gameLoopStarted = false;
+  private _hoveredNpcId: string | null = null;
 
   constructor(options: any = {}) {
     this.spriteLoader = new SpriteLoader();
@@ -123,7 +125,9 @@ export default class GameEngine {
         }
       }
 
-      if (hoveredNpc) {
+      if (hoveredNpc && hoveredNpc !== this._hoveredNpc) {
+        // New hover - don't pause animation, just update hover state
+        this._setHoveredNpc(hoveredNpc);
         const agentData: AgentData = {
           agent: hoveredNpc.agent,
           charName: hoveredNpc.charName,
@@ -133,11 +137,22 @@ export default class GameEngine {
         if (this.app?.view) {
           (this.app.view as HTMLCanvasElement).style.cursor = 'pointer';
         }
-      } else {
+      } else if (!hoveredNpc && this._hoveredNpc) {
+        // No longer hovering - animation keeps playing
+        this._setHoveredNpc(null);
         this.onNpcLeave?.();
         if (this.app?.view) {
           (this.app.view as HTMLCanvasElement).style.cursor = 'default';
         }
+      }
+    });
+
+    this.npcLayer.on('pointerleave', () => {
+      // Animation keeps playing when leaving canvas
+      this._setHoveredNpc(null);
+      this.onNpcLeave?.();
+      if (this.app?.view) {
+        (this.app.view as HTMLCanvasElement).style.cursor = 'default';
       }
     });
 
@@ -273,6 +288,7 @@ export default class GameEngine {
     this.npcs.forEach(npc => {
       this.npcLayer!.removeChild(npc.container);
     });
+    this._hoveredNpcId = null;
     this.npcs = [];
     this._agentsById.clear();
     this._eventsByAgent.clear();
@@ -287,14 +303,8 @@ export default class GameEngine {
       this._agentsById.set(agent.id, agent);
       const npc = this._createNPC(agent);
 
-      // Set up idle walking behavior for idle agents
-      if (npc && agent.status === 'idle') {
-        npc.minY = 500;
-        npc.maxY = 800;
-        npc.targetY = npc.maxY;
-        npc.walkDirection = 1;
-        console.log('[GameEngine] Set up idle walking for agent:', agent.name, 'between y:', npc.minY, '-', npc.maxY);
-      }
+      // Disable idle walking for all agents (no walking animations)
+      // Walking animations are disabled as per requirements
     });
 
     this.onLayoutChange?.({ sceneW: this.sceneW, sceneH: this.sceneH });
@@ -314,14 +324,16 @@ export default class GameEngine {
     let animSpeed = 0.15;
 
     if (agent.status === 'working') {
+      // Working: use phone animation (reading)
       if (frames.phone.length > 0) {
         animFrames = frames.phone;
         animSpeed = 0.12;
       } else {
-        animFrames = frames.right;
-        animSpeed = 0.18;
+        animFrames = frames.idle;
+        animSpeed = 0.1;
       }
     } else {
+      // Idle: use idle animation (no walking)
       animFrames = frames.idle;
       animSpeed = 0.1;
     }
@@ -380,6 +392,7 @@ export default class GameEngine {
       speed: 1.5,
       exclamationMark,
       showExclamation: false,
+      isPausedByHover: false,
     };
 
     this.npcs.push(npcSprite);
@@ -403,44 +416,29 @@ export default class GameEngine {
       }
       return true;
     });
+    if (this._hoveredNpcId && !this.npcs.some(npc => npc.id === this._hoveredNpcId)) {
+      this._hoveredNpcId = null;
+    }
 
     agents.forEach(agent => {
       const existing = this.npcs.find(n => n.id === agent.id);
       if (existing) {
         existing.agent = agent;
 
-        // Update idle walking behavior based on status
-        if (agent.status === 'idle') {
-          if (existing.minY === undefined) {
-            existing.minY = 500;
-            existing.maxY = 800;
-            existing.targetY = existing.maxY;
-            existing.walkDirection = 1;
-            console.log('[GameEngine] Enabled idle walking for agent:', agent.name);
-          }
-        } else {
-          // Disable idle walking for non-idle agents
-          if (existing.minY !== undefined) {
-            existing.minY = undefined;
-            existing.maxY = undefined;
-            existing.targetY = undefined;
-            existing.walkDirection = undefined;
-            console.log('[GameEngine] Disabled idle walking for agent:', agent.name);
-          }
+        // Disable idle walking for all agents (no walking animations)
+        if (existing.minY !== undefined) {
+          existing.minY = undefined;
+          existing.maxY = undefined;
+          existing.targetY = undefined;
+          existing.walkDirection = undefined;
+          console.log('[GameEngine] Disabled idle walking for agent:', agent.name);
         }
 
         this._updateNPCAnimation(existing);
       } else {
         const npc = this._createNPC(agent);
 
-        // Set up idle walking behavior for idle agents
-        if (npc && agent.status === 'idle') {
-          npc.minY = 500;
-          npc.maxY = 800;
-          npc.targetY = npc.maxY;
-          npc.walkDirection = 1;
-          console.log('[GameEngine] Set up idle walking for new agent:', agent.name);
-        }
+        // Disable idle walking for all agents (no walking animations)
       }
     });
 
@@ -467,12 +465,12 @@ export default class GameEngine {
     });
 
     if (agent.status === 'working') {
-      // Working: use phone animation
+      // Working: use phone animation (reading)
       if (frames.phone && frames.phone.length > 0) {
         newAnim = 'phone';
         animFrames = frames.phone;
         animSpeed = 0.12;
-        console.log('[GameEngine] ✅ Setting animation to phone (working), frames count:', frames.phone.length);
+        console.log('[GameEngine] ✅ Setting animation to phone (reading), frames count:', frames.phone.length);
       } else {
         // Fallback to idle if no phone animation
         newAnim = 'idle';
@@ -481,19 +479,11 @@ export default class GameEngine {
         console.log('[GameEngine] ⚠️ No phone animation, fallback to idle');
       }
     } else {
-      // Idle: use run animation for walking
-      if (frames.right && frames.right.length > 0) {
-        newAnim = 'run';
-        animFrames = frames.right;
-        animSpeed = 0.18;
-        console.log('[GameEngine] ✅ Setting animation to run (idle/walking), frames count:', frames.right.length);
-      } else {
-        // Fallback to idle if no run animation
-        newAnim = 'idle';
-        animFrames = frames.idle;
-        animSpeed = 0.1;
-        console.log('[GameEngine] ⚠️ No run animation, fallback to idle');
-      }
+      // Idle: use idle animation (no walking for main agent)
+      newAnim = 'idle';
+      animFrames = frames.idle;
+      animSpeed = 0.1;
+      console.log('[GameEngine] ✅ Setting animation to idle (no walking)');
     }
 
     if (npc.currentAnim !== newAnim) {
@@ -522,7 +512,7 @@ export default class GameEngine {
     } else {
       console.log('[GameEngine] Animation already set to', newAnim);
 
-      // Even if animation is the same, ensure it's playing
+      // Ensure animation is playing
       if (!npc.sprite.playing) {
         console.log('[GameEngine] ⚠️ Animation not playing, restarting...');
         npc.sprite.gotoAndPlay(0);
@@ -534,6 +524,7 @@ export default class GameEngine {
     const index = this.npcs.findIndex(n => n.id === agentId);
     if (index >= 0) {
       const npc = this.npcs[index];
+      if (!npc) return;
       this.npcLayer!.removeChild(npc.container);
       this.npcs.splice(index, 1);
       this._agentsById.delete(agentId);
@@ -565,7 +556,6 @@ export default class GameEngine {
       visible: npc.exclamationMark.visible,
       x: npc.exclamationMark.x,
       y: npc.exclamationMark.y,
-      text: npc.exclamationMark.text,
       alpha: npc.exclamationMark.alpha,
     });
 
@@ -606,21 +596,10 @@ export default class GameEngine {
     if (!this.app || this._gameLoopStarted) return;
     this._gameLoopStarted = true;
 
-    console.log('[GameEngine] Starting game loop for idle agent movement');
+    console.log('[GameEngine] Game loop disabled - no walking animations');
 
-    this.app.ticker.add(() => {
-      if (!this._gameLoopStarted) return;
-
-      // Update each NPC
-      this.npcs.forEach(npc => {
-        // Only move idle agents
-        const shouldMove = npc.agent.status === 'idle' && npc.minY !== undefined && npc.maxY !== undefined;
-
-        if (shouldMove) {
-          this._updateIdleMovement(npc);
-        }
-      });
-    });
+    // Game loop disabled - agents stay in place with idle animation
+    // No walking movement for any agents
   }
 
   private _updateIdleMovement(npc: NPCSprite): void {
@@ -659,6 +638,29 @@ export default class GameEngine {
 
     // Update z-index for proper layering
     npc.container.zIndex = npc.container.y;
+  }
+
+  private _setHoveredNpc(hoveredNpc: NPCSprite | null): void {
+    const hoveredId = hoveredNpc?.id ?? null;
+    if (hoveredId === this._hoveredNpcId) return;
+
+    if (this._hoveredNpcId) {
+      const prevNpc = this.npcs.find(npc => npc.id === this._hoveredNpcId);
+      if (prevNpc) {
+        this._setNpcAnimationPaused(prevNpc, false);
+      }
+    }
+
+    if (hoveredNpc) {
+      this._setNpcAnimationPaused(hoveredNpc, true);
+    }
+
+    this._hoveredNpcId = hoveredId;
+  }
+
+  private _setNpcAnimationPaused(npc: NPCSprite, paused: boolean): void {
+    // Animation is always stopped, no need to pause/resume
+    npc.isPausedByHover = paused;
   }
 
   private _switchAnimation(npc: NPCSprite, anim: 'idle' | 'run' | 'phone'): void {

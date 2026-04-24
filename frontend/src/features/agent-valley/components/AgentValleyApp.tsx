@@ -24,6 +24,8 @@ export default function AgentValleyApp() {
   const [tooltip, setTooltip] = useState<any>(null);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [selectedSubtask, setSelectedSubtask] = useState<Subtask | null>(null);
+  const [viewedSubtasks, setViewedSubtasks] = useState<Set<string>>(new Set());
+  const [viewedMainAgent, setViewedMainAgent] = useState(false); // Track if user has viewed main agent
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [activeMapId, setActiveMapId] = useState(DEFAULT_MAP_CONFIG.id);
   const [cursorState, setCursorState] = useState('normal');
@@ -40,8 +42,21 @@ export default function AgentValleyApp() {
     h: typeof window !== 'undefined' ? window.innerHeight : UI_H,
   }));
 
+  // Real-time messages from ChatEmbed (when open)
+  const [realtimeMessages, setRealtimeMessages] = useState<any[] | null>(null);
+
+  // Use realtime messages if available, otherwise use thread messages
+  const messagesForSubtasks = realtimeMessages || agentData?.thread?.values?.messages;
+
+  console.log('[AgentValleyApp] 📊 Messages source:', {
+    hasRealtimeMessages: !!realtimeMessages,
+    realtimeMessagesCount: realtimeMessages?.length || 0,
+    threadMessagesCount: agentData?.thread?.values?.messages?.length || 0,
+    messagesForSubtasksCount: messagesForSubtasks?.length || 0,
+  });
+
   // Use subtasks hook to get subtasks from thread messages
-  const { subtasks } = useSubtasks(agentData?.thread?.values?.messages, {
+  const { subtasks } = useSubtasks(messagesForSubtasks, {
     sceneW: 896,
     sceneH: 640,
   });
@@ -120,6 +135,9 @@ export default function AgentValleyApp() {
       if (subtask) {
         setSelectedSubtask(subtask);
 
+        // Mark subtask as viewed
+        setViewedSubtasks(prev => new Set(prev).add(subtaskId));
+
         // Hide exclamation mark when user views the subtask result
         if (gameEngineRef.current) {
           gameEngineRef.current.showExclamationMark(npcId, false);
@@ -129,6 +147,14 @@ export default function AgentValleyApp() {
       // Main agent: open chat dialog
       if (agentData?.thread?.thread_id) {
         setSelectedThreadId(agentData.thread.thread_id);
+
+        // Mark main agent as viewed
+        setViewedMainAgent(true);
+
+        // Hide exclamation mark when user clicks on main agent
+        if (gameEngineRef.current) {
+          gameEngineRef.current.showExclamationMark(agentData.thread.thread_id, false);
+        }
       }
     }
   }, [agentData, subtasks, gameEngineRef]);
@@ -139,15 +165,40 @@ export default function AgentValleyApp() {
 
   const handleCloseChat = useCallback(() => {
     setSelectedThreadId(null);
+    // Don't clear realtime messages - keep them for subtask rendering
+    // setRealtimeMessages(null);
 
     // Don't reset chatting state if AI is still responding
     if (!isChatting) {
       setIsWaitingForUser(false);
     }
-  }, [isChatting, isWaitingForUser]);
+  }, [isChatting]);
+
+  const handleThreadUpdate = useCallback((messages: any[]) => {
+    console.log('[AgentValleyApp] 🔄 Received realtime thread update');
+    console.log('[AgentValleyApp] Messages count:', messages.length);
+
+    // Log tool_calls
+    const messagesWithToolCalls = messages.filter((msg: any) =>
+      msg.type === 'ai' && msg.tool_calls && msg.tool_calls.length > 0
+    );
+    console.log('[AgentValleyApp] Messages with tool_calls:', messagesWithToolCalls.length);
+    messagesWithToolCalls.forEach((msg: any, index: number) => {
+      console.log(`[AgentValleyApp] Message ${index + 1} tool_calls:`, msg.tool_calls);
+      msg.tool_calls.forEach((toolCall: any) => {
+        console.log(`[AgentValleyApp]   - Tool: ${toolCall.name}, ID: ${toolCall.id}`);
+      });
+    });
+
+    setRealtimeMessages(messages);
+  }, []);
 
   const handleChatStatusChange = useCallback((isLoading: boolean) => {
     setIsChatting(isLoading);
+    // Reset viewedMainAgent when starting a new chat
+    if (isLoading) {
+      setViewedMainAgent(false);
+    }
   }, []);
 
   const handleWaitingForUser = useCallback((isWaiting: boolean) => {
@@ -232,6 +283,9 @@ export default function AgentValleyApp() {
             isLoadingData={isLoadingData}
             isChatting={isChatting}
             isWaitingForUser={isWaitingForUser}
+            viewedSubtasks={viewedSubtasks}
+            viewedMainAgent={viewedMainAgent}
+            realtimeMessages={realtimeMessages}
           />
         </div>
       </div>
@@ -244,6 +298,7 @@ export default function AgentValleyApp() {
           onClose={handleCloseChat}
           onChatStatusChange={handleChatStatusChange}
           onWaitingForUser={handleWaitingForUser}
+          onThreadUpdate={handleThreadUpdate}
         />
       )}
 

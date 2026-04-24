@@ -11,7 +11,7 @@ export interface TokenUsage {
  * The field is added by the backend (PR #1218) but not typed in the SDK.
  */
 export function getUsageMetadata(message: Message): TokenUsage | null {
-  if (message.type !== "ai") {
+  if (!message || message.type !== "ai") {
     return null;
   }
   const usage = (message as Record<string, unknown>).usage_metadata as
@@ -31,6 +31,9 @@ export function getUsageMetadata(message: Message): TokenUsage | null {
  * Accumulate token usage across all AI messages in a thread.
  */
 export function accumulateUsage(messages: Message[]): TokenUsage | null {
+  if (!messages || messages.length === 0) {
+    return null;
+  }
   const cumulative: TokenUsage = {
     inputTokens: 0,
     outputTokens: 0,
@@ -38,6 +41,7 @@ export function accumulateUsage(messages: Message[]): TokenUsage | null {
   };
   let hasUsage = false;
   for (const message of messages) {
+    if (!message) continue; // Skip undefined messages
     const usage = getUsageMetadata(message);
     if (usage) {
       hasUsage = true;

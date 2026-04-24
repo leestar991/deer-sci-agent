@@ -19,6 +19,9 @@ interface GameCanvasProps {
   isLoadingData?: boolean;
   isChatting?: boolean;
   isWaitingForUser?: boolean;
+  viewedSubtasks?: Set<string>;
+  viewedMainAgent?: boolean;
+  realtimeMessages?: any[] | null;
 }
 
 export default function GameCanvas({
@@ -34,6 +37,9 @@ export default function GameCanvas({
   isLoadingData = false,
   isChatting = false,
   isWaitingForUser = false,
+  viewedSubtasks = new Set(),
+  viewedMainAgent = false,
+  realtimeMessages = null,
 }: GameCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const loadingRef = useRef<HTMLDivElement>(null);
@@ -116,16 +122,48 @@ export default function GameCanvas({
   }, [mapConfig, gameEngineRef]); // Only re-initialize when map config changes
 
   // Use subtasks hook to monitor stream messages
-  const { subtasks } = useSubtasks(agentData?.thread?.values?.messages, {
+  // Prioritize realtimeMessages from ChatEmbed, fallback to agentData
+  const messages = realtimeMessages || agentData?.thread?.values?.messages;
+  console.log('[GameCanvas] 📨 Messages source:', realtimeMessages ? 'realtime' : 'agentData');
+  console.log('[GameCanvas] 📨 Messages count:', messages?.length || 0);
+  console.log('[GameCanvas] 📨 Has realtimeMessages:', !!realtimeMessages);
+  console.log('[GameCanvas] 📨 Has agentData messages:', !!agentData?.thread?.values?.messages);
+
+  // Log tool_calls in messages
+  if (messages && messages.length > 0) {
+    const messagesWithToolCalls = messages.filter((msg: any) =>
+      msg.type === 'ai' && msg.tool_calls && msg.tool_calls.length > 0
+    );
+    console.log('[GameCanvas] 📨 Messages with tool_calls:', messagesWithToolCalls.length);
+    messagesWithToolCalls.forEach((msg: any, index: number) => {
+      console.log(`[GameCanvas] 📨 Message ${index + 1} tool_calls:`, msg.tool_calls);
+      msg.tool_calls.forEach((toolCall: any) => {
+        console.log(`[GameCanvas] 📨   - Tool: ${toolCall.name}, ID: ${toolCall.id}`);
+      });
+    });
+  }
+
+  const { subtasks } = useSubtasks(messages, {
     sceneW: 896,
     sceneH: 640,
   });
 
   // Log subtasks changes
   useEffect(() => {
-    console.log('[GameCanvas] Subtasks changed, count:', subtasks.size);
+    console.log('[GameCanvas] 🤖 Subtasks changed, count:', subtasks.size);
     if (subtasks.size > 0) {
-      console.log('[GameCanvas] Subtasks:', Array.from(subtasks.values()));
+      console.log('[GameCanvas] 🤖 Subtasks details:');
+      Array.from(subtasks.values()).forEach((subtask, index) => {
+        console.log(`[GameCanvas] 🤖   ${index + 1}. ${subtask.id}:`, {
+          name: subtask.name,
+          description: subtask.description,
+          status: subtask.status,
+          charName: subtask.charName,
+          position: subtask.position,
+        });
+      });
+    } else {
+      console.log('[GameCanvas] 🤖 No subtasks found');
     }
   }, [subtasks]);
 
@@ -149,7 +187,7 @@ export default function GameCanvas({
       model: 'claude-sonnet-4',
       status: agentStatus,
       charName: agentData.charName,
-      position: { x: 350, y: 500 },
+      position: { x: 690, y: 550 },
       first_seen_at: agentData.thread.updated_at,
     } : {
       id: 'agent-1',
@@ -159,14 +197,23 @@ export default function GameCanvas({
       model: 'claude-sonnet-4',
       status: agentStatus,
       charName: agentData?.charName || 'Alex',
-      position: { x: 350, y: 500 },
+      position: { x: 690, y: 550 },
       first_seen_at: new Date().toISOString(),
     };
 
     agents.push(mainAgent);
 
     // 2. Create subtask agents
+    console.log('[GameCanvas] 🤖 Creating subtask agents, subtasks count:', subtasks.size);
     for (const [id, subtask] of subtasks.entries()) {
+      console.log('[GameCanvas] Creating subtask agent:', {
+        id,
+        description: subtask.description,
+        status: subtask.status,
+        charName: subtask.charName,
+        position: subtask.position,
+      });
+
       const subtaskAgent: Agent = {
         id: `subtask:${id}`,
         name: subtask.description,
@@ -181,13 +228,16 @@ export default function GameCanvas({
         parent_agent_id: mainAgent.id,
       };
       agents.push(subtaskAgent);
+      console.log('[GameCanvas] ✅ Subtask agent created:', subtaskAgent.id);
     }
 
+    console.log('[GameCanvas] 📊 Total agents to render:', agents.length, '(1 main +', subtasks.size, 'subtasks)');
     engineRef.current.updateData(agents, []);
 
     // Update exclamation marks
-    // Main agent
-    if (isWaitingForUser) {
+    // Main agent - show exclamation mark when waiting for user OR when task completed and not viewed yet
+    const shouldShowMainAgentMark = isWaitingForUser || (!isChatting && !viewedMainAgent && agentData?.thread?.values?.messages && agentData.thread.values.messages.length > 0);
+    if (shouldShowMainAgentMark) {
       engineRef.current.showExclamationMark(mainAgent.id, true);
     } else {
       engineRef.current.showExclamationMark(mainAgent.id, false);
@@ -195,13 +245,14 @@ export default function GameCanvas({
 
     // Subtask agents
     for (const [id, subtask] of subtasks.entries()) {
-      if (subtask.status === 'completed') {
+      // Only show exclamation mark if subtask is completed AND not viewed
+      if (subtask.status === 'completed' && !viewedSubtasks.has(id)) {
         engineRef.current.showExclamationMark(`subtask:${id}`, true);
       } else {
         engineRef.current.showExclamationMark(`subtask:${id}`, false);
       }
     }
-  }, [agentData, isLoadingData, engineReady, isChatting, isWaitingForUser, subtasks]);
+  }, [agentData, !!isLoadingData, !!engineReady, !!isChatting, !!isWaitingForUser, subtasks, viewedSubtasks, !!viewedMainAgent]);
 
   return (
     <div className="townWrap visible">

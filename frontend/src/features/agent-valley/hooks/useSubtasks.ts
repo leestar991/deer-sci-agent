@@ -18,6 +18,7 @@ export function useSubtasks(
   const [subtasks, setSubtasks] = useState<Map<string, Subtask>>(new Map());
   const positionAllocatorRef = useRef(new PositionAllocator());
   const characterAllocatorRef = useRef(new CharacterAllocator());
+  const lastUserMessageIndexRef = useRef<number>(-1);
 
   useEffect(() => {
     console.log('[useSubtasks] Messages received:', messages?.length || 0);
@@ -25,6 +26,31 @@ export function useSubtasks(
     if (!messages || messages.length === 0) {
       console.log('[useSubtasks] No messages, skipping');
       return;
+    }
+
+    // 检测是否有新的用户消息
+    let latestUserMessageIndex = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].type === 'human') {
+        latestUserMessageIndex = i;
+        break;
+      }
+    }
+
+    // 如果发现新的用户消息，清空之前的子任务
+    if (latestUserMessageIndex > lastUserMessageIndexRef.current) {
+      console.log('[useSubtasks] 🧹 New user message detected, clearing previous subtasks');
+      console.log('[useSubtasks] Previous user message index:', lastUserMessageIndexRef.current);
+      console.log('[useSubtasks] New user message index:', latestUserMessageIndex);
+
+      lastUserMessageIndexRef.current = latestUserMessageIndex;
+
+      // 重置位置和角色分配器
+      positionAllocatorRef.current = new PositionAllocator();
+      characterAllocatorRef.current = new CharacterAllocator();
+
+      // 清空子任务
+      setSubtasks(new Map());
     }
 
     const newSubtasks = new Map<string, Subtask>();
@@ -45,11 +71,20 @@ export function useSubtasks(
             args: toolCall.args,
           });
 
-          // 只处理 name === 'task' 的工具调用
-          if (toolCall.name === 'task' && toolCall.id) {
+          // 处理所有工具调用（支持多种类型）
+          // 支持的工具类型：task, Agent, agent, spawn_agent 等
+          // 也支持任何包含 'agent' 关键字的工具
+          const toolNameLower = toolCall.name.toLowerCase();
+          const isSubagentTool =
+            ['task', 'Agent', 'agent', 'spawn_agent', 'create_agent'].includes(toolCall.name) ||
+            toolNameLower.includes('agent') ||
+            toolNameLower.includes('subtask') ||
+            toolNameLower.includes('spawn');
+
+          if (isSubagentTool && toolCall.id) {
             const taskId = toolCall.id;
 
-            console.log('[useSubtasks] Found task tool call:', taskId);
+            console.log('[useSubtasks] ✅ Found subagent tool call:', toolCall.name, taskId);
 
             // 如果子任务已存在，保留它
             if (existingSubtasks.has(taskId)) {

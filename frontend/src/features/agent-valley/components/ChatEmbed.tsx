@@ -29,9 +29,10 @@ interface ChatEmbedProps {
   onClose: () => void;
   onChatStatusChange?: (isLoading: boolean) => void;
   onWaitingForUser?: (isWaiting: boolean) => void;
+  onThreadUpdate?: (messages: any[]) => void;
 }
 
-export default function ChatEmbed({ threadId, onClose, onChatStatusChange, onWaitingForUser }: ChatEmbedProps) {
+export default function ChatEmbed({ threadId, onClose, onChatStatusChange, onWaitingForUser, onThreadUpdate }: ChatEmbedProps) {
   const { t } = useI18n();
   const [showFollowups, setShowFollowups] = useState(false);
   const [settings, setSettings] = useThreadSettings(threadId);
@@ -88,6 +89,33 @@ export default function ChatEmbed({ threadId, onClose, onChatStatusChange, onWai
   // Track previous isLoading state to detect transitions
   const prevIsLoadingRef = useRef(thread.isLoading);
   const userHasSentMessageRef = useRef(false); // Track if user has sent a message in this session
+  const prevMessagesLengthRef = useRef(0); // Track previous messages length
+
+  // Notify parent component of thread updates (only when messages length changes)
+  useEffect(() => {
+    const currentLength = thread.messages.length;
+    console.log('[ChatEmbed] 📨 Thread messages update:', {
+      currentLength,
+      prevLength: prevMessagesLengthRef.current,
+      hasOnThreadUpdate: !!onThreadUpdate,
+    });
+
+    if (onThreadUpdate && currentLength > 0 && currentLength !== prevMessagesLengthRef.current) {
+      prevMessagesLengthRef.current = currentLength;
+      console.log('[ChatEmbed] ✅ Calling onThreadUpdate with', currentLength, 'messages');
+
+      // Log tool_calls in messages
+      const messagesWithToolCalls = thread.messages.filter((msg: any) =>
+        msg.type === 'ai' && msg.tool_calls && msg.tool_calls.length > 0
+      );
+      console.log('[ChatEmbed] Messages with tool_calls:', messagesWithToolCalls.length);
+      messagesWithToolCalls.forEach((msg: any, index: number) => {
+        console.log(`[ChatEmbed] Message ${index + 1} tool_calls:`, msg.tool_calls);
+      });
+
+      onThreadUpdate(thread.messages);
+    }
+  }, [thread.messages.length, onThreadUpdate]);
 
   // Monitor thread streaming status
   useEffect(() => {
