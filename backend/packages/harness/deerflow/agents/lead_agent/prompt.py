@@ -199,17 +199,27 @@ def _build_subagent_section(max_concurrent: int, allowed_subagents: list[str] | 
 
     Args:
         max_concurrent: Maximum number of concurrent subagent calls allowed per response.
-        allowed_subagents: Optional allowlist of subagent names. If provided, only these
-            subagents are shown in the prompt.
+        allowed_subagents: Optional allowlist of subagent names from agent config.
+            - None  → show all names exposed by the runtime (default behaviour).
+            - []    → no subagents allowed; returns empty string so the section is omitted.
+            - [...]  → intersect with runtime-available names and show only the result.
 
     Returns:
-        Formatted subagent section string.
+        Formatted subagent section string, or empty string when no subagents are available.
     """
     n = max_concurrent
+    # Start from the runtime-visible set (respects sandbox bash restrictions etc.)
     available_names = get_available_subagent_names()
     if allowed_subagents is not None:
-        allowed_set = set(allowed_subagents)
-        available_names = [name for name in available_names if name in allowed_set]
+        # Preserve the order declared in agent config; skip names absent from the runtime.
+        runtime_set = set(available_names)
+        available_names = [name for name in allowed_subagents if name in runtime_set]
+
+    # No usable subagents after filtering → omit the section entirely so the agent
+    # doesn't attempt task() calls that would always fail the runtime allowlist check.
+    if not available_names:
+        return ""
+
     bash_available = "bash" in available_names
 
     # Dynamically build subagent type descriptions from registry (aligned with Codex's
@@ -715,13 +725,16 @@ def apply_prompt_template(subagent_enabled: bool = False, max_concurrent_subagen
     # Include subagent section only if enabled (from runtime parameter)
     n = max_concurrent_subagents
     subagent_section = _build_subagent_section(n, allowed_subagents=allowed_subagents) if subagent_enabled else ""
+    # _build_subagent_section returns "" when allowed_subagents resolves to an empty set;
+    # treat that the same as disabled so reminder/thinking hints are also suppressed.
+    subagent_active = bool(subagent_section)
 
     # Add subagent reminder to critical_reminders if enabled
     subagent_reminder = (
         "- **Orchestrator Mode**: You are a task orchestrator - decompose complex tasks into parallel sub-tasks. "
         f"**HARD LIMIT: max {n} `task` calls per response.** "
         f"If >{n} sub-tasks, split into sequential batches of ≤{n}. Synthesize after ALL batches complete.\n"
-        if subagent_enabled
+        if subagent_active
         else ""
     )
 
@@ -730,7 +743,7 @@ def apply_prompt_template(subagent_enabled: bool = False, max_concurrent_subagen
         "- **DECOMPOSITION CHECK: Can this task be broken into 2+ parallel sub-tasks? If YES, COUNT them. "
         f"If count > {n}, you MUST plan batches of ≤{n} and only launch the FIRST batch now. "
         f"NEVER launch more than {n} `task` calls in one response.**\n"
-        if subagent_enabled
+        if subagent_active
         else ""
     )
 
