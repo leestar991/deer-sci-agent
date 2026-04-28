@@ -37,6 +37,7 @@ export default function AgentChatPage() {
   const [viewMode, setViewMode] = useState<"conversation" | "studio">(
     "conversation",
   );
+  const [hasOpenedStudio, setHasOpenedStudio] = useState(false);
   const router = useRouter();
 
   const { agent_name } = useParams<{
@@ -133,7 +134,10 @@ export default function AgentChatPage() {
                 <Button
                   size="sm"
                   variant={viewMode === "studio" ? "default" : "secondary"}
-                  onClick={() => setViewMode("studio")}
+                  onClick={() => {
+                    setHasOpenedStudio(true);
+                    setViewMode("studio");
+                  }}
                 >
                   工作室
                 </Button>
@@ -159,18 +163,28 @@ export default function AgentChatPage() {
           </header>
 
           <main className="flex min-h-0 max-w-full grow flex-col">
-            {viewMode === "conversation" ? (
-              <div className="flex size-full justify-center">
-                <MessageList
-                  className={cn("size-full", !isNewThread && "pt-10")}
-                  threadId={threadId}
-                  thread={thread}
-                  paddingBottom={messageListPaddingBottom}
-                  tokenUsageEnabled={tokenUsageEnabled}
-                />
-              </div>
-            ) : (
-              <div className="size-full px-4 pt-14 pb-4">
+            <div
+              className={cn(
+                "flex size-full justify-center",
+                viewMode !== "conversation" && "hidden",
+              )}
+            >
+              <MessageList
+                className={cn("size-full", !isNewThread && "pt-10")}
+                threadId={threadId}
+                thread={thread}
+                paddingBottom={messageListPaddingBottom}
+                tokenUsageEnabled={tokenUsageEnabled}
+              />
+            </div>
+
+            {hasOpenedStudio && (
+              <div
+                className={cn(
+                  "size-full px-4 pt-14 pb-4",
+                  viewMode !== "studio" && "hidden",
+                )}
+              >
                 <iframe
                   title="agent-valley-studio"
                   src="http://139.196.193.213:6874/agent-valley"
